@@ -1,0 +1,4 @@
+{
+  "buildCommand": "cd ../.. && pnpm install --no-frozen-lockfile && pnpm run build --filter=app...",
+  "installCommand": "cd ../.. && pnpm install --no-frozen-lockfile"
+}
