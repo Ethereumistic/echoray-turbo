@@ -6,6 +6,7 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
+    --bitcoin: 33 93% 54%;
 
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
@@ -53,10 +54,13 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+
   }
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
+    --bitcoin: 33 93% 54%;
 
     --card: 0 0% 3.9%;
     --card-foreground: 0 0% 98%;

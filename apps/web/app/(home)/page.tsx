@@ -8,11 +8,15 @@ import { Features } from './components/features';
 import { Hero } from './components/hero';
 import { Stats } from './components/stats';
 import { Testimonials } from './components/testimonials';
+import { Funnel } from './components/funnel';
+import { Services } from './components/services';
+import { Process } from './components/process';
+import { Benefits } from './components/benefits';
 
 const meta = {
-  title: 'Echo Ray',
+  title: 'EchoRay',
   description:
-    "Echo Ray is a full-service digital agency that specializes in creating a wide range of web applications, including portfolios, blogs, document management systems, databases, and AI integrations.",
+    "EchoRay is a full-service digital agency that specializes in creating a wide range of web applications, including portfolios, blogs, document management systems, databases, and AI integrations.",
 };
 
 export const metadata: Metadata = createMetadata(meta);
@@ -28,8 +32,12 @@ const Home = async () => {
         </div>
       )}
       <Hero />
+      <Services />
+      <Process />
+      <Benefits />
       <Cases />
       <Features />
+      <Funnel />
       <Stats />
       <Testimonials />
       <FAQ />

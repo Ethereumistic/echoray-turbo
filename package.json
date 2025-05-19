@@ -1,5 +1,5 @@
 {
-  "name": "next-forge",
+  "name": "echo-ray",
   "version": "2.13.17",
   "bin": {
     "next-forge": "./scripts/init.js"
