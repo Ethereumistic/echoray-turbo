@@ -35,11 +35,11 @@ const Home = async () => {
       <Services />
       <Process />
       <Benefits />
-      <Cases />
+      {/* <Cases />
       <Features />
       <Funnel />
       <Stats />
-      <Testimonials />
+      <Testimonials /> */}
       <FAQ />
       <CTA />
     </>
