@@ -3,7 +3,12 @@
   "private": true,
   "scripts": {
     "dev": "mintlify dev --port 3004",
-    "lint": "mintlify broken-links"
+    "lint": "mintlify broken-links",
+    "start": "npx serve . -p 3004"
+  },
+  "dependencies": {
+    "mintlify": "^4.0.114",
+    "serve": "^14.2.1"
   },
   "devDependencies": {
     "typescript": "^5.6.3"
