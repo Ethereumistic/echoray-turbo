@@ -5,18 +5,20 @@ import type { Theme } from '@clerk/types';
 import { tailwind } from '@repo/tailwind-config';
 import { useTheme } from 'next-themes';
 import type { ReactNode } from 'react';
+import { Suspense } from 'react';
 
-// Workaround for Next.js 15 compatibility
-let ClerkProvider: any;
-
+// Import Clerk correctly for Next.js 15
+let ClerkProviderModule;
 try {
-  // Try to dynamically import ClerkProvider at runtime
-  ClerkProvider = require('@clerk/nextjs').ClerkProvider;
+  // Dynamic import at runtime
+  ClerkProviderModule = require('@clerk/nextjs');
 } catch (error) {
-  // Fallback to a simple wrapper if import fails
   console.error('Failed to import ClerkProvider:', error);
-  ClerkProvider = ({ children }: { children: ReactNode }) => <>{children}</>;
 }
+
+// Use proper fallback if import fails
+const ClerkProvider = ClerkProviderModule?.ClerkProvider || 
+  (({ children }: { children: ReactNode }) => <>{children}</>);
 
 type AuthProviderProps = {
   children: ReactNode;
@@ -51,10 +53,27 @@ export const AuthProvider = (properties: AuthProviderProps) => {
     organizationPreviewAvatarContainer: 'shrink-0',
   };
 
+  // Update deprecated props to new format
+  const clerkProps = { ...properties };
+  
+  // Replace deprecated props with newer versions
+  if (clerkProps.afterSignInUrl) {
+    clerkProps.signInFallbackRedirectUrl = clerkProps.afterSignInUrl;
+    delete clerkProps.afterSignInUrl;
+  }
+  
+  if (clerkProps.afterSignUpUrl) {
+    clerkProps.signUpFallbackRedirectUrl = clerkProps.afterSignUpUrl;
+    delete clerkProps.afterSignUpUrl;
+  }
+
+  // Use Suspense for Next.js 15 compatibility
   return (
-    <ClerkProvider
-      {...properties}
-      appearance={{ baseTheme, variables, elements }}
-    />
+    <Suspense fallback={<div>Loading authentication...</div>}>
+      <ClerkProvider
+        {...clerkProps}
+        appearance={{ baseTheme, variables, elements }}
+      />
+    </Suspense>
   );
 };
