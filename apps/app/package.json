@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@repo/auth": "workspace:*",
-    "@clerk/nextjs": "^6.3.1",
+    "@clerk/nextjs": "^6.20.0",
     "@repo/analytics": "workspace:*",
+    "@repo/auth": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/design-system": "workspace:*",
     "@repo/env": "workspace:*",

@@ -123,6 +123,15 @@ export const Header = () => {
             width={200}
             height={100}
             className="dark:invert"
+            priority
+            onError={(e) => {
+              console.error('Logo failed to load, error:', e);
+              // Fall back to SVG logo if available
+              if (Logo) {
+                const target = e.target as HTMLImageElement;
+                target.src = Logo;
+              }
+            }}
           />
           </Link>
         </div>
