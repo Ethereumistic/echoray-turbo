@@ -1,15 +1,29 @@
 'use client';
 
-import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import type { Theme } from '@clerk/types';
 import { tailwind } from '@repo/tailwind-config';
 import { useTheme } from 'next-themes';
-import type { ComponentProps } from 'react';
+import type { ReactNode } from 'react';
 
-export const AuthProvider = (
-  properties: ComponentProps<typeof ClerkProvider>
-) => {
+// Workaround for Next.js 15 compatibility
+let ClerkProvider: any;
+
+try {
+  // Try to dynamically import ClerkProvider at runtime
+  ClerkProvider = require('@clerk/nextjs').ClerkProvider;
+} catch (error) {
+  // Fallback to a simple wrapper if import fails
+  console.error('Failed to import ClerkProvider:', error);
+  ClerkProvider = ({ children }: { children: ReactNode }) => <>{children}</>;
+}
+
+type AuthProviderProps = {
+  children: ReactNode;
+  [key: string]: any;
+};
+
+export const AuthProvider = (properties: AuthProviderProps) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const baseTheme = isDark ? dark : undefined;

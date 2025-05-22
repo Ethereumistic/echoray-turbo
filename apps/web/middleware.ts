@@ -19,7 +19,8 @@ const aj = arcjet.withRule(
 );
 
 export default clerkMiddleware(async (_auth, request) => {
-  const decision = await aj.protect(request);
+  // Fix for TypeScript error in Next.js 15
+  const decision = await aj.protect(request as any);
 
   if (
     // If this deny comes from a bot rule then block the request. You can

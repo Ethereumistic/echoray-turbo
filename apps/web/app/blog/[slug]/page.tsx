@@ -8,8 +8,12 @@ import { allPosts } from 'content-collections';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import Balancer from 'react-wrap-balancer';
+
+// Workaround for notFound compatibility in Next.js 15
+function notFound(): never {
+  throw new Error('NEXT_NOT_FOUND');
+}
 
 type BlogPostProperties = {
   readonly params: Promise<{

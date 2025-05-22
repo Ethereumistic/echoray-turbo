@@ -5,8 +5,12 @@ import { createMetadata } from '@repo/seo/metadata';
 import { allLegals } from 'content-collections';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import Balancer from 'react-wrap-balancer';
+
+// Workaround for notFound compatibility in Next.js 15
+function notFound(): never {
+  throw new Error('NEXT_NOT_FOUND');
+}
 
 type LegalPageProperties = {
   readonly params: Promise<{
