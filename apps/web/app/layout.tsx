@@ -5,6 +5,9 @@ import { fonts } from '@repo/design-system/lib/fonts';
 import type { ReactNode } from 'react';
 import { Footer } from './components/footer';
 import { Header } from './components/header';
+import { ClerkProvider } from '@clerk/nextjs';
+import { env } from '@repo/env';
+import { Suspense } from 'react';
 
 type RootLayoutProperties = {
   readonly children: ReactNode;
@@ -13,11 +16,19 @@ type RootLayoutProperties = {
 const RootLayout = ({ children }: RootLayoutProperties) => (
   <html lang="en" className={fonts} suppressHydrationWarning>
     <body>
-      <DesignSystemProvider>
-        <Header />
-        {children}
-        <Footer />
-      </DesignSystemProvider>
+      <Suspense fallback={<div>Loading authentication...</div>}>
+        <ClerkProvider
+          publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+        >
+          <DesignSystemProvider>
+            <Header />
+            {children}
+            <Footer />
+          </DesignSystemProvider>
+        </ClerkProvider>
+      </Suspense>
     </body>
   </html>
 );
