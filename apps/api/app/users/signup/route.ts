@@ -1,5 +1,4 @@
-import { auth } from '@clerk/nextjs';
-import { getAuth } from '@clerk/nextjs/server';
+import { getAuth, currentUser } from '@clerk/nextjs/server';
 import { 
   corsResponse, 
   corsErrorResponse, 
@@ -21,15 +20,15 @@ export async function POST(request: Request) {
     let userId = null;
     
     try {
-      // First attempt: Use auth() function
-      const authResult = auth();
-      userId = authResult?.userId;
-      console.log("Auth result:", { userId: userId || 'none' });
+      // First attempt: Use currentUser() function
+      const user = await currentUser();
+      userId = user?.id;
+      console.log("currentUser result:", { userId: userId || 'none' });
     } catch (authError) {
-      console.error("Error with auth():", authError);
+      console.error("Error with currentUser():", authError);
     }
     
-    // Second attempt: Try getAuth if auth() failed
+    // Second attempt: Try getAuth if currentUser() failed
     if (!userId) {
       try {
         const authResult = getAuth(request);

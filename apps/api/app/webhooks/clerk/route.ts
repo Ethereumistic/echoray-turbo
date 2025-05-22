@@ -72,10 +72,13 @@ const handleUserDeleted = (data: DeletedObjectJSON) => {
 };
 
 const handleOrganizationCreated = (data: OrganizationJSON) => {
+  // Use a fallback ID if created_by is undefined
+  const distinctId = data.created_by || data.id;
+  
   analytics.groupIdentify({
     groupKey: data.id,
     groupType: 'company',
-    distinctId: data.created_by,
+    distinctId,
     properties: {
       name: data.name,
       avatar: data.image_url,
@@ -84,17 +87,20 @@ const handleOrganizationCreated = (data: OrganizationJSON) => {
 
   analytics.capture({
     event: 'Organization Created',
-    distinctId: data.created_by,
+    distinctId,
   });
 
   return new Response('Organization created', { status: 201 });
 };
 
 const handleOrganizationUpdated = (data: OrganizationJSON) => {
+  // Use a fallback ID if created_by is undefined
+  const distinctId = data.created_by || data.id;
+  
   analytics.groupIdentify({
     groupKey: data.id,
     groupType: 'company',
-    distinctId: data.created_by,
+    distinctId,
     properties: {
       name: data.name,
       avatar: data.image_url,
@@ -103,7 +109,7 @@ const handleOrganizationUpdated = (data: OrganizationJSON) => {
 
   analytics.capture({
     event: 'Organization Updated',
-    distinctId: data.created_by,
+    distinctId,
   });
 
   return new Response('Organization updated', { status: 201 });
