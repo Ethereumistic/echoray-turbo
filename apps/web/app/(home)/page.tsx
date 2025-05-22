@@ -42,7 +42,6 @@ const Home = async () => {
       <Testimonials /> */}
       <FAQ />
       <CTA />
-      Testing if isolated changes are working 2 2 2 2 2
     </>
   );
 };

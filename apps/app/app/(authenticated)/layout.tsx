@@ -5,6 +5,7 @@ import arcjet, { detectBot, request } from '@repo/security';
 import type { ReactNode } from 'react';
 import { PostHogIdentifier } from './components/posthog-identifier';
 import { GlobalSidebar } from './components/sidebar';
+import { ClientProviders } from './components/client-providers';
 
 type AppLayoutProperties = {
   readonly children: ReactNode;
@@ -52,6 +53,7 @@ const AppLayout = async ({ children }: AppLayoutProperties) => {
         {children}
       </GlobalSidebar>
       <PostHogIdentifier />
+      <ClientProviders />
     </SidebarProvider>
   );
 };

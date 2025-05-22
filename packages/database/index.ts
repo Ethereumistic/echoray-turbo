@@ -7,9 +7,16 @@ declare global {
   var cachedPrisma: PrismaClient | undefined;
 }
 
-// Directly initialize PrismaClient without an adapter
-export const database = new PrismaClient({
-  // If you have any specific configurations for Accelerate, add them here
-});
+// Initialize PrismaClient
+export const database = 
+  global.cachedPrisma || 
+  new PrismaClient({
+    log: env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
+
+// Cache the PrismaClient in development to prevent too many connections
+if (env.NODE_ENV !== "production") {
+  global.cachedPrisma = database;
+}
 
 export * from '@prisma/client'
