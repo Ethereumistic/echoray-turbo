@@ -76,13 +76,55 @@ export function SignupPrompt({
   // Check URL params on load - user might be redirected here with auth info
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const authCompleted = params.get("auth_completed");
-    const userId = params.get("userId");
+    const authCompleted = params.get("auth");
+    const timestamp = params.get("t");
     
-    if (authCompleted === "true" && userId) {
-      logDebug(`Found userId in URL params: ${userId}`);
-      setAuthCompleted(true);
-      onComplete(userId);
+    if (authCompleted === "success") {
+      logDebug(`🔄 Detected auth redirect with timestamp: ${timestamp}`);
+      
+      // Check localStorage for auth data when redirected back
+      setTimeout(() => {
+        try {
+          const authDataStr = localStorage.getItem('echoray-auth-data');
+          if (authDataStr) {
+            logDebug('📦 Found auth data in localStorage after redirect');
+            const authData = JSON.parse(authDataStr);
+            
+            if (authData?.source === 'echoray-auth-callback' && 
+                authData?.type === 'SURVEY_AUTH_COMPLETE' && 
+                authData?.userId) {
+              
+              logDebug(`✅ Processing auth data from redirect: ${JSON.stringify(authData)}`);
+              localStorage.removeItem('echoray-auth-data'); // Remove it once processed
+              
+              setAuthCompleted(true);
+              
+              // Store session token if available
+              if (authData.sessionToken) {
+                try {
+                  sessionStorage.setItem('clerk-session-token', authData.sessionToken);
+                  logDebug('✅ Stored session token from redirect auth data');
+                } catch (e) {
+                  logDebug('❌ Could not store session token in sessionStorage');
+                }
+              }
+              
+              onComplete(authData.userId);
+              return;
+            }
+          }
+        } catch (e) {
+          logDebug(`❌ Error processing redirect auth data: ${e}`);
+        }
+        
+        // If no localStorage data found, check if we have URL-based auth info
+        const userId = params.get("userId");
+        if (userId) {
+          logDebug(`✅ Found userId in URL params: ${userId}`);
+          setAuthCompleted(true);
+          onComplete(userId);
+        }
+      }, 500); // Small delay to ensure localStorage is updated
     }
   }, [onComplete]);
   
@@ -303,8 +345,8 @@ export function SignupPrompt({
           }
         }
         
-        // Also check localStorage periodically in case window communication fails
-        if (authTimeElapsed % 2 === 0) { // Check every 2 seconds instead of 3
+        // Check localStorage much more frequently since it's our primary communication method
+        if (authTimeElapsed % 1 === 0) { // Check every second instead of every 2 seconds
           try {
             const authDataStr = localStorage.getItem('echoray-auth-data');
             if (authDataStr) {
@@ -348,7 +390,7 @@ export function SignupPrompt({
             // Ignore localStorage errors
           }
           
-          // Also try to check sessionStorage for any stored token
+          // Also try to check sessionStorage for any stored token every second
           try {
             const storedToken = sessionStorage.getItem('clerk-session-token');
             if (storedToken && !authCompleted) {

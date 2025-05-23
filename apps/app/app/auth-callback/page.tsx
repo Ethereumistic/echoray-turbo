@@ -134,17 +134,7 @@ export default function AuthCallback() {
         
         addDebugLog(`📤 Sending message to parent window: ${JSON.stringify(authData)}`);
         
-        if (!opener) {
-          addDebugLog('❌ No parent window available');
-          setStatus('Error: Parent window not found');
-          return;
-        }
-        
-        // Send message to parent window with the user ID and session token
-        opener.postMessage(authData, "*");
-        addDebugLog('✅ Message sent via postMessage');
-        
-        // Also store in localStorage as backup
+        // Store in localStorage immediately (this is our primary method now)
         try {
           const backupData = {
             source: 'echoray-auth-callback',
@@ -155,40 +145,47 @@ export default function AuthCallback() {
           };
           
           localStorage.setItem('echoray-auth-data', JSON.stringify(backupData));
-          addDebugLog('💾 Auth data stored in localStorage as backup');
+          addDebugLog('💾 Auth data stored in localStorage (PRIMARY METHOD)');
         } catch (storageError) {
           addDebugLog(`❌ localStorage error: ${storageError}`);
         }
         
+        // Try postMessage if parent window exists (but we know it won't work due to COOP)
+        if (opener) {
+          try {
+            opener.postMessage(authData, "*");
+            addDebugLog('✅ Message sent via postMessage');
+          } catch (postMessageError) {
+            addDebugLog(`❌ postMessage failed: ${postMessageError}`);
+          }
+        } else {
+          addDebugLog('❌ No parent window available (blocked by COOP policy)');
+        }
+        
         setMessageSent(true);
-        const successMsg = '🎉 Authentication complete! Returning to survey...';
+        const successMsg = '🎉 Authentication complete! Redirecting back to survey...';
         addDebugLog(successMsg);
         setStatus(successMsg);
-        document.title = 'Auth Complete - Closing...';
+        document.title = 'Auth Complete - Redirecting...';
         
-        // Send multiple messages to ensure delivery
-        const sendBackupMessages = () => {
-          for (let i = 1; i <= 3; i++) {
-            setTimeout(() => {
-              if (opener && !opener.closed) {
-                addDebugLog(`📤 Sending backup message #${i}`);
-                opener.postMessage(authData, "*");
-              }
-            }, i * 500);
-          }
-        };
+        // Since window.opener is blocked, redirect back to the parent domain with auth data
+        // The parent page can check for this redirect and handle the auth completion
+        addDebugLog('🔄 Redirecting to parent domain with auth data...');
         
-        sendBackupMessages();
-        
-        // Close this window after a delay
         setTimeout(() => {
-          addDebugLog('🔚 Attempting to close auth window');
           try {
-            window.close();
-          } catch (closeError) {
-            addDebugLog(`❌ Failed to close window: ${closeError}`);
+            // Redirect back to the main site with a success indicator
+            const redirectUrl = `https://echoray.io/?auth=success&t=${Date.now()}`;
+            addDebugLog(`🔄 Redirecting to: ${redirectUrl}`);
+            window.location.href = redirectUrl;
+          } catch (redirectError) {
+            addDebugLog(`❌ Redirect failed: ${redirectError}`);
+            // Fallback: try to close the window
+            setTimeout(() => {
+              window.close();
+            }, 2000);
           }
-        }, 3000);
+        }, 2000);
         
       } catch (error) {
         const errorMsg = `❌ Error in sendAuthData: ${error}`;
