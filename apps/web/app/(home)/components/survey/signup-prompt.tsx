@@ -31,7 +31,7 @@ export function SignupPrompt({
   const fetchCurrentUser = async () => {
     try {
       logDebug('Fetching current user from API...');
-      const baseUrl = env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+      const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
       const apiUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
       
       const response = await fetch(apiUrl, {
@@ -226,7 +226,7 @@ export function SignupPrompt({
           
           try {
             // Check if the user is now authenticated via API
-            const baseUrl = env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+            const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
             const apiUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
             
             const response = await fetch(apiUrl, {

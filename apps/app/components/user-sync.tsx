@@ -76,7 +76,7 @@ export function UserSync() {
         console.log("Syncing user to database:", userId);
         
         // Prepare the API URL
-        const apiUrl = `${env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/users/signup`;
+        const apiUrl = `${env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io'}/users/signup`;
         
         // Call the API to create/update the user
         const response = await fetch(apiUrl, {

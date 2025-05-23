@@ -161,7 +161,7 @@ export function SurveyDialog({
       }
       
       // First, ensure the user exists in our database
-      const baseUrl = env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+      const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
       const userApiUrl = baseUrl.endsWith('/') ? `${baseUrl}users/signup` : `${baseUrl}/users/signup`;
       
       console.log('Ensuring user exists in database:', userId);

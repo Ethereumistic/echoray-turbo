@@ -72,7 +72,7 @@ export default function UserTestPage() {
       const fullName = firstName && lastName ? `${firstName} ${lastName}` : user?.username || "";
       
       // Prepare the API URL
-      const apiUrl = `${env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/users/signup`;
+      const apiUrl = `${env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io'}/users/signup`;
       
       const userData = {
         userId,
