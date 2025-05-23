@@ -16,8 +16,8 @@ export default function AuthCallback() {
       const urlParams = new URLSearchParams(window.location.search);
       const callbackType = urlParams.get('callback');
       
-      if (callbackType !== 'survey') {
-        console.error('❌ Invalid callback type - expected "survey"');
+      if (!callbackType || !['survey', 'navbar'].includes(callbackType)) {
+        console.error('❌ Invalid callback type - expected "survey" or "navbar"');
         window.close();
         return;
       }
@@ -30,12 +30,12 @@ export default function AuthCallback() {
       
       if (!isSignedIn || !userId) {
         console.log('🚫 User not signed in, redirecting to sign-in');
-        window.location.href = '/sign-in?callback=survey';
+        window.location.href = `/sign-in?callback=${callbackType}`;
         return;
       }
       
       try {
-        console.log(`🔑 Processing auth for userId: ${userId}`);
+        console.log(`🔑 Processing auth for userId: ${userId}, callback: ${callbackType}`);
         
         // Get session token
         let sessionToken = null;
@@ -49,7 +49,7 @@ export default function AuthCallback() {
         // Store auth data in localStorage (primary method)
         const authData = {
           source: 'echoray-auth-callback',
-          type: 'SURVEY_AUTH_COMPLETE',
+          type: callbackType === 'survey' ? 'SURVEY_AUTH_COMPLETE' : 'NAVBAR_AUTH_COMPLETE',
           userId: userId,
           sessionToken: sessionToken,
           timestamp: Date.now()
@@ -70,7 +70,7 @@ export default function AuthCallback() {
         
         console.log('🔚 Closing auth window...');
         
-        // Close the window immediately
+        // Close the window immediately for both survey and navbar auth
         setTimeout(() => {
           window.close();
         }, 100);

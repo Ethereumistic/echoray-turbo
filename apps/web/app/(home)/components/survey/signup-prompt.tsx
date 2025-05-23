@@ -241,7 +241,7 @@ export function SignupPrompt({
               logDebug(`📦 Parsed localStorage data: ${JSON.stringify(authData)}`);
               
               if (authData?.source === 'echoray-auth-callback' && 
-                  authData?.type === 'SURVEY_AUTH_COMPLETE' && 
+                  (authData?.type === 'SURVEY_AUTH_COMPLETE' || authData?.type === 'NAVBAR_AUTH_COMPLETE') && 
                   authData?.userId) {
                 
                 logDebug(`✅ VALID auth data found! Processing...`);

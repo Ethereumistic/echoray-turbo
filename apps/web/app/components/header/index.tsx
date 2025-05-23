@@ -99,8 +99,23 @@ export const Header = () => {
             const authData = await response.json();
             if (authData.isAuthenticated && authData.userId) {
               setCrossDomainUser({ id: authData.userId });
+            } else {
+              // Session is invalid, clear it
+              console.log('🔄 Session invalid, clearing auth state');
+              sessionStorage.removeItem('clerk-session-token');
+              localStorage.removeItem('echoray-auth-data');
+              setCrossDomainUser(null);
             }
+          } else {
+            // API call failed, likely session expired
+            console.log('🔄 Session validation failed, clearing auth state');
+            sessionStorage.removeItem('clerk-session-token');
+            localStorage.removeItem('echoray-auth-data');
+            setCrossDomainUser(null);
           }
+        } else {
+          // No session token, ensure user state is clear
+          setCrossDomainUser(null);
         }
       } catch (error) {
         console.log('Cross-domain auth check failed:', error);
@@ -129,9 +144,38 @@ export const Header = () => {
       }
     };
     
+    // Listen for localStorage auth completion (both survey and navbar)
+    const handleAuthCompletion = () => {
+      try {
+        const authDataStr = localStorage.getItem('echoray-auth-data');
+        if (authDataStr) {
+          const authData = JSON.parse(authDataStr);
+          if (authData?.source === 'echoray-auth-callback' && 
+              (authData?.type === 'SURVEY_AUTH_COMPLETE' || authData?.type === 'NAVBAR_AUTH_COMPLETE') && 
+              authData?.userId && authData?.sessionToken) {
+            
+            console.log('🔄 Header detected auth completion:', authData.type);
+            
+            // Store session token
+            sessionStorage.setItem('clerk-session-token', authData.sessionToken);
+            localStorage.removeItem('echoray-auth-data'); // Clean up
+            
+            // Update auth state
+            setCrossDomainUser({ id: authData.userId });
+            setAuthCheckLoading(false);
+          }
+        }
+      } catch (error) {
+        console.log('Error processing auth completion:', error);
+      }
+    };
+    
     window.addEventListener('storage', handleStorageChange);
-    // Check every few seconds in case storage events don't fire
-    const interval = setInterval(handleManualStorageCheck, 3000);
+    // Check for auth completion and session validity
+    const interval = setInterval(() => {
+      handleManualStorageCheck();
+      handleAuthCompletion();
+    }, 2000);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
@@ -289,10 +333,10 @@ export const Header = () => {
               <div className="hidden border-r md:inline" />
               <ModeToggle />
               <Button variant="outline" asChild>
-                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>Sign in</Link>
+                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in?callback=navbar`}>Sign in</Link>
               </Button>
               <Button variant="default" asChild>
-                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>Get started</Link>
+                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up?callback=navbar`}>Get started</Link>
               </Button>
             </>
           )}
@@ -386,14 +430,14 @@ export const Header = () => {
                   // Not signed in user mobile buttons
                   <>
                     <Link
-                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}
+                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-in?callback=navbar`}
                       className="flex items-center justify-between"
                     >
                       <span className="text-lg">Sign in</span>
                       <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
                     </Link>
                     <Link
-                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}
+                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-up?callback=navbar`}
                       className="flex items-center justify-between"
                     >
                       <span className="text-lg">Get started</span>
