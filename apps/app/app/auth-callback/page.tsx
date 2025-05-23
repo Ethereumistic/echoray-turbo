@@ -16,7 +16,11 @@ export default function AuthCallback() {
       const urlParams = new URLSearchParams(window.location.search);
       const callbackType = urlParams.get('callback');
       
-      console.log(`🔑 Auth callback triggered, type: ${callbackType || 'none'}`);
+      if (callbackType !== 'survey') {
+        console.error('❌ Invalid callback type - expected "survey"');
+        window.close();
+        return;
+      }
       
       // Wait for auth to load
       if (!isLoaded) {
@@ -26,7 +30,7 @@ export default function AuthCallback() {
       
       if (!isSignedIn || !userId) {
         console.log('🚫 User not signed in, redirecting to sign-in');
-        window.location.href = '/sign-in';
+        window.location.href = '/sign-in?callback=survey';
         return;
       }
       
@@ -42,10 +46,10 @@ export default function AuthCallback() {
           console.error('❌ Session token error:', tokenError);
         }
         
-        // Store auth data in localStorage for cross-domain communication
+        // Store auth data in localStorage (primary method)
         const authData = {
           source: 'echoray-auth-callback',
-          type: 'AUTH_COMPLETE',
+          type: 'SURVEY_AUTH_COMPLETE',
           userId: userId,
           sessionToken: sessionToken,
           timestamp: Date.now()

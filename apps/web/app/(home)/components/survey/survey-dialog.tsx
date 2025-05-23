@@ -194,44 +194,44 @@ export function SurveyDialog({
         console.log('Using session token for survey submission');
       }
       
-      const response = await fetch(surveyApiUrl, {
-        method: 'POST',
+        const response = await fetch(surveyApiUrl, {
+          method: 'POST',
         headers,
-        body: JSON.stringify({
-          ...submissionData,
-          // Pass the userId from auth
-          userId: userId
-        }),
-        credentials: 'include', // Include credentials for authentication
-      });
-      
-      // First check if the response is valid JSON
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch (jsonError) {
-        console.error('Invalid JSON response from survey API:', await response.text());
-        throw new Error('Invalid response from server. Please try again.');
-      }
-      
-      if (!response.ok) {
-        console.error('Failed to submit survey:', responseData);
-        throw new Error(responseData.error || 'Failed to submit survey');
-      }
-      
-      console.log('Survey submitted successfully:', responseData);
-      
-      // Clear localStorage after successful submission
-      try {
-        localStorage.removeItem('echoray-survey-data');
-        console.log('Cleared survey data from localStorage after successful submission');
-      } catch (e) {
-        console.error('Error clearing localStorage:', e);
-      }
-      
-      // Show the exit screen
-      setShowSignup(false)
-      setShowExit(true)
+          body: JSON.stringify({
+            ...submissionData,
+            // Pass the userId from auth
+            userId: userId
+          }),
+          credentials: 'include', // Include credentials for authentication
+        });
+        
+        // First check if the response is valid JSON
+        let responseData;
+        try {
+          responseData = await response.json();
+        } catch (jsonError) {
+          console.error('Invalid JSON response from survey API:', await response.text());
+          throw new Error('Invalid response from server. Please try again.');
+        }
+        
+        if (!response.ok) {
+          console.error('Failed to submit survey:', responseData);
+          throw new Error(responseData.error || 'Failed to submit survey');
+        }
+        
+        console.log('Survey submitted successfully:', responseData);
+        
+        // Clear localStorage after successful submission
+        try {
+          localStorage.removeItem('echoray-survey-data');
+          console.log('Cleared survey data from localStorage after successful submission');
+        } catch (e) {
+          console.error('Error clearing localStorage:', e);
+        }
+        
+        // Show the exit screen
+        setShowSignup(false)
+        setShowExit(true)
     } catch (error) {
       console.error('Error submitting survey:', error);
       alert('There was an error submitting your survey. Please try again.');
@@ -318,7 +318,7 @@ export function SurveyDialog({
       }
     }
   };
-
+  
   const handleClose = () => {
     if (showExit) {
       window.location.href = "/dashboard";
