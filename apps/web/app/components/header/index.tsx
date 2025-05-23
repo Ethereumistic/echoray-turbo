@@ -13,7 +13,7 @@ import {
 import { env } from '@repo/env';
 import { Menu, MoveRight, X, LogOut, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth, useClerk } from '@clerk/nextjs';
 
 import Image from 'next/image';
@@ -63,6 +63,84 @@ export const Header = () => {
   const [isOpen, setOpen] = useState(false);
   const { user } = useAuth();
   const { signOut } = useClerk();
+  
+  // Cross-domain authentication state
+  const [crossDomainUser, setCrossDomainUser] = useState<any>(null);
+  const [authCheckLoading, setAuthCheckLoading] = useState(true);
+  
+  // Check authentication status from app domain
+  useEffect(() => {
+    const checkCrossDomainAuth = async () => {
+      try {
+        // First check if we have a local Clerk user
+        if (user) {
+          setCrossDomainUser(user);
+          setAuthCheckLoading(false);
+          return;
+        }
+        
+        // If no local user, check session token in storage
+        const sessionToken = sessionStorage.getItem('clerk-session-token');
+        if (sessionToken) {
+          // Verify the session token with our API
+          const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
+          const apiUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
+          
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${sessionToken}`,
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          });
+          
+          if (response.ok) {
+            const authData = await response.json();
+            if (authData.isAuthenticated && authData.userId) {
+              setCrossDomainUser({ id: authData.userId });
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Cross-domain auth check failed:', error);
+      } finally {
+        setAuthCheckLoading(false);
+      }
+    };
+    
+    checkCrossDomainAuth();
+    
+    // Listen for session token changes (from survey authentication)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'clerk-session-token' && e.newValue) {
+        // Session token was added, re-check authentication
+        setAuthCheckLoading(true);
+        checkCrossDomainAuth();
+      }
+    };
+    
+    // Also listen for manual storage updates (not just cross-window)
+    const handleManualStorageCheck = () => {
+      const sessionToken = sessionStorage.getItem('clerk-session-token');
+      if (sessionToken && !crossDomainUser) {
+        setAuthCheckLoading(true);
+        checkCrossDomainAuth();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    // Check every few seconds in case storage events don't fire
+    const interval = setInterval(handleManualStorageCheck, 3000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [user, crossDomainUser]);
+  
+  // Use either local Clerk user or cross-domain user
+  const currentUser = user || crossDomainUser;
 
   // Handle sign out with proper cleanup
   const handleSignOut = async () => {
@@ -71,8 +149,13 @@ export const Header = () => {
       sessionStorage.removeItem('clerk-session-token');
       localStorage.removeItem('echoray-auth-data');
       
-      // Sign out from Clerk
-      await signOut();
+      // Clear cross-domain user state
+      setCrossDomainUser(null);
+      
+      // Sign out from Clerk if user exists locally
+      if (user) {
+        await signOut();
+      }
       
       // Redirect to home page to ensure clean state
       window.location.href = '/';
@@ -159,7 +242,23 @@ export const Header = () => {
           </Link>
         </div>
         <div className="flex w-full justify-end gap-4">
-          {user ? (
+          {authCheckLoading ? (
+            // Loading state
+            <>
+              <Button variant="ghost" className="hidden md:inline" asChild>
+                <Link href="/contact">Contact us</Link>
+              </Button>
+              <div className="hidden border-r md:inline" />
+              <ModeToggle />
+              <Button variant="outline" disabled>
+                Loading...
+              </Button>
+              <Button variant="default" disabled>
+                Loading...
+              </Button>
+            </>
+          ) : currentUser ? (
+            // Signed in user buttons
             <>
               <Button variant="ghost" className="hidden md:inline" asChild>
                 <Link href="/contact">Contact us</Link>
@@ -182,6 +281,7 @@ export const Header = () => {
               </Button>
             </>
           ) : (
+            // Not signed in user buttons
             <>
               <Button variant="ghost" className="hidden md:inline" asChild>
                 <Link href="/contact">Contact us</Link>
@@ -251,7 +351,14 @@ export const Header = () => {
                   <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
                 </Link>
                 
-                {user ? (
+                {authCheckLoading ? (
+                  // Loading state for mobile
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg text-muted-foreground">Loading...</span>
+                    </div>
+                  </>
+                ) : currentUser ? (
                   // Signed in user mobile buttons
                   <>
                     <Link
