@@ -1,312 +1,92 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 
 export default function AuthCallback() {
   const { userId, isLoaded, isSignedIn, getToken } = useAuth();
-  const [status, setStatus] = useState('Initializing authentication...');
-  const [messageSent, setMessageSent] = useState(false);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-
-  // Debug logging function that also logs to window console
-  const addDebugLog = (message: string) => {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] ${message}`;
-    console.log('🔧 AUTH CALLBACK:', logMessage);
-    window.console?.log('🔧 AUTH CALLBACK:', logMessage);
-    setDebugLogs(prev => [...prev, logMessage]);
-  };
-
-  // Add global error handler to catch any issues
-  useEffect(() => {
-    const handleError = (event: ErrorEvent) => {
-      addDebugLog(`❌ JavaScript Error: ${event.error?.message || event.message}`);
-      console.error('Auth callback error:', event.error);
-    };
-
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      addDebugLog(`❌ Unhandled Promise Rejection: ${event.reason}`);
-      console.error('Auth callback unhandled rejection:', event.reason);
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
-  }, []);
 
   useEffect(() => {
-    addDebugLog('🚀 AuthCallback component mounted');
-    addDebugLog(`🌐 URL: ${window.location.href}`);
-    addDebugLog(`🔐 Auth Status - isLoaded: ${isLoaded}, isSignedIn: ${isSignedIn}, userId: ${userId || 'none'}`);
+    // Make the page invisible immediately
+    document.body.style.display = 'none';
+    document.title = 'Authentication...';
     
-    // Also log to window title for easy debugging
-    document.title = `Auth Callback - ${isLoaded ? (isSignedIn ? 'Signed In' : 'Not Signed In') : 'Loading'}`;
-    
-    // Extract query parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const callbackType = urlParams.get('callback');
-    addDebugLog(`📋 Callback type: ${callbackType}`);
-    
-    if (callbackType !== 'survey') {
-      const errorMsg = '❌ Invalid callback type - expected "survey"';
-      addDebugLog(errorMsg);
-      setStatus(errorMsg);
-      return;
-    }
-    
-    // Check for parent window immediately
-    const opener = window.opener;
-    addDebugLog(`🪟 Parent window: ${opener ? 'EXISTS' : 'NOT FOUND'}`);
-    
-    // Try to send a basic "alive" message immediately
-    if (opener) {
-      try {
-        addDebugLog('📡 Sending "alive" message to parent');
-        opener.postMessage({
-          type: "AUTH_CALLBACK_ALIVE",
-          url: window.location.href,
-          timestamp: Date.now()
-        }, "*");
-      } catch (messageError) {
-        addDebugLog(`❌ Failed to send alive message: ${messageError}`);
-      }
-    }
-    
-    // Only proceed when auth is loaded
-    if (!isLoaded) {
-      const loadingMsg = '⏳ Waiting for auth to load...';
-      addDebugLog(loadingMsg);
-      setStatus(loadingMsg);
-      return;
-    }
-    
-    addDebugLog(`✅ Auth loaded - isSignedIn: ${isSignedIn}, userId: ${userId || 'none'}`);
-    
-    if (!isSignedIn || !userId) {
-      const notSignedInMsg = '🚫 User is not signed in. Please sign in or sign up.';
-      addDebugLog(notSignedInMsg);
-      setStatus(notSignedInMsg);
+    const handleAuth = async () => {
+      // Extract query parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const callbackType = urlParams.get('callback');
       
-      // Try to redirect to sign-in if not signed in
-      if (!isSignedIn) {
-        addDebugLog('🔄 Attempting to redirect to sign-in...');
-        setTimeout(() => {
-          window.location.href = '/sign-in?callback=survey';
-        }, 2000);
+      if (callbackType !== 'survey') {
+        console.error('❌ Invalid callback type - expected "survey"');
+        window.close();
+        return;
       }
-      return;
-    }
-    
-    // Prevent sending multiple messages
-    if (messageSent) {
-      addDebugLog('✋ Message already sent, skipping');
-      return;
-    }
-    
-    addDebugLog('🎯 Preparing to send auth data');
-    
-    const sendAuthData = async () => {
+      
+      // Wait for auth to load
+      if (!isLoaded) {
+        console.log('⏳ Waiting for auth to load...');
+        return;
+      }
+      
+      if (!isSignedIn || !userId) {
+        console.log('🚫 User not signed in, redirecting to sign-in');
+        window.location.href = '/sign-in?callback=survey';
+        return;
+      }
+      
       try {
-        addDebugLog(`🔑 Starting auth data send process for userId: ${userId}`);
+        console.log(`🔑 Processing auth for userId: ${userId}`);
         
-        // Get the session token for cross-domain authentication
-        addDebugLog('🎫 Attempting to get session token...');
+        // Get session token
         let sessionToken = null;
         try {
           sessionToken = await getToken();
-          addDebugLog(`🎫 Session token: ${sessionToken ? 'SUCCESS' : 'FAILED'}`);
+          console.log('🎫 Session token retrieved successfully');
         } catch (tokenError) {
-          addDebugLog(`❌ Session token error: ${tokenError}`);
+          console.error('❌ Session token error:', tokenError);
         }
         
+        // Store auth data in localStorage (primary method)
         const authData = {
-          type: "SURVEY_AUTH_COMPLETE",
+          source: 'echoray-auth-callback',
+          type: 'SURVEY_AUTH_COMPLETE',
           userId: userId,
           sessionToken: sessionToken,
-          isSignedIn: true,
           timestamp: Date.now()
         };
         
-        addDebugLog(`📤 Sending message to parent window: ${JSON.stringify(authData)}`);
+        localStorage.setItem('echoray-auth-data', JSON.stringify(authData));
+        console.log('💾 Auth data stored in localStorage');
         
-        // Store in localStorage immediately (this is our primary method now)
+        // Try to send message to parent window (fallback, likely blocked by COOP)
         try {
-          const backupData = {
-            source: 'echoray-auth-callback',
-            type: 'SURVEY_AUTH_COMPLETE',
-            userId: userId,
-            sessionToken: sessionToken,
-            timestamp: Date.now()
-          };
-          
-          localStorage.setItem('echoray-auth-data', JSON.stringify(backupData));
-          addDebugLog('💾 Auth data stored in localStorage (PRIMARY METHOD)');
-        } catch (storageError) {
-          addDebugLog(`❌ localStorage error: ${storageError}`);
-        }
-        
-        // Try postMessage if parent window exists (but we know it won't work due to COOP)
-        if (opener) {
-          try {
-            opener.postMessage(authData, "*");
-            addDebugLog('✅ Message sent via postMessage');
-          } catch (postMessageError) {
-            addDebugLog(`❌ postMessage failed: ${postMessageError}`);
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(authData, "*");
+            console.log('✅ Message sent to parent window');
           }
-        } else {
-          addDebugLog('❌ No parent window available (blocked by COOP policy)');
+        } catch (postMessageError) {
+          console.log('❌ postMessage blocked by COOP policy');
         }
         
-        setMessageSent(true);
-        const successMsg = '🎉 Authentication complete! Redirecting back to survey...';
-        addDebugLog(successMsg);
-        setStatus(successMsg);
-        document.title = 'Auth Complete - Redirecting...';
+        console.log('🔚 Closing auth window...');
         
-        // Since window.opener is blocked, redirect back to the parent domain with auth data
-        // The parent page can check for this redirect and handle the auth completion
-        addDebugLog('🔄 Redirecting to parent domain with auth data...');
-        
+        // Close the window immediately
         setTimeout(() => {
-          try {
-            // Redirect back to the main site with a success indicator
-            const redirectUrl = `https://echoray.io/?auth=success&t=${Date.now()}`;
-            addDebugLog(`🔄 Redirecting to: ${redirectUrl}`);
-            window.location.href = redirectUrl;
-          } catch (redirectError) {
-            addDebugLog(`❌ Redirect failed: ${redirectError}`);
-            // Fallback: try to close the window
-            setTimeout(() => {
-              window.close();
-            }, 2000);
-          }
-        }, 2000);
+          window.close();
+        }, 100);
         
       } catch (error) {
-        const errorMsg = `❌ Error in sendAuthData: ${error}`;
-        addDebugLog(errorMsg);
-        console.error(errorMsg, error);
-        setStatus('Error completing authentication. Please try again.');
-        document.title = 'Auth Error';
+        console.error('❌ Error in auth callback:', error);
+        // Still try to close on error
+        setTimeout(() => {
+          window.close();
+        }, 1000);
       }
     };
     
-    sendAuthData();
-  }, [isLoaded, isSignedIn, userId, getToken, messageSent]);
+    handleAuth();
+  }, [isLoaded, isSignedIn, userId, getToken]);
 
-  // Also try to send auth data periodically if we have the required data
-  useEffect(() => {
-    if (isLoaded && isSignedIn && userId && !messageSent) {
-      addDebugLog('⏰ Setting up periodic auth check...');
-      
-      const interval = setInterval(() => {
-        if (window.opener && !messageSent) {
-          addDebugLog('⏰ Periodic auth check - attempting to send message');
-          
-          const quickAuthData = {
-            type: "SURVEY_AUTH_COMPLETE",
-            userId: userId,
-            isSignedIn: true,
-            sessionToken: null,
-            source: 'periodic-check',
-            timestamp: Date.now()
-          };
-          
-          try {
-            window.opener.postMessage(quickAuthData, "*");
-            addDebugLog('📤 Periodic message sent');
-          } catch (periodicError) {
-            addDebugLog(`❌ Periodic message failed: ${periodicError}`);
-          }
-          
-          // Try to get token asynchronously
-          getToken().then((token: string | null) => {
-            if (token && window.opener && !messageSent) {
-              const fullAuthData = {
-                type: "SURVEY_AUTH_COMPLETE",
-                userId: userId,
-                sessionToken: token,
-                isSignedIn: true,
-                source: 'periodic-with-token',
-                timestamp: Date.now()
-              };
-              
-              try {
-                window.opener.postMessage(fullAuthData, "*");
-                addDebugLog('📤 Periodic message with token sent');
-              } catch (tokenMsgError) {
-                addDebugLog(`❌ Token message failed: ${tokenMsgError}`);
-              }
-            }
-          }).catch((tokenError: unknown) => {
-            addDebugLog(`❌ Error getting token in periodic check: ${tokenError}`);
-          });
-        }
-      }, 1000);
-      
-      // Clear interval after 10 seconds
-      setTimeout(() => {
-        clearInterval(interval);
-        addDebugLog('⏰ Cleared periodic auth check interval');
-      }, 10000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [isLoaded, isSignedIn, userId, getToken, messageSent]);
-
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center">
-      <h1 className="text-2xl font-bold mb-4">Authentication Callback</h1>
-      <p className="mb-4">{status}</p>
-      <p className="text-sm text-muted-foreground mb-4">
-        This window will close automatically if authentication is successful.
-      </p>
-      
-      {/* Always show debug information for troubleshooting */}
-      <div className="mt-8 p-4 bg-gray-100 rounded text-left text-xs max-w-2xl max-h-64 overflow-y-auto">
-        <h3 className="font-bold mb-2">Debug Logs:</h3>
-        {debugLogs.map((log, index) => (
-          <div key={index} className="mb-1 font-mono text-xs">
-            {log}
-          </div>
-        ))}
-      </div>
-      
-      {/* Add manual controls for testing */}
-      <div className="mt-4 space-x-2">
-        <button 
-          onClick={() => {
-            if (window.opener) {
-              const testMessage = {
-                type: "SURVEY_AUTH_COMPLETE",
-                userId: userId || 'test-user',
-                isSignedIn: true,
-                source: 'manual-test',
-                timestamp: Date.now()
-              };
-              window.opener.postMessage(testMessage, "*");
-              addDebugLog('📤 Manual test message sent');
-            }
-          }}
-          className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
-        >
-          Send Test Message
-        </button>
-        
-        <button 
-          onClick={() => {
-            window.close();
-          }}
-          className="px-3 py-1 bg-red-500 text-white rounded text-sm"
-        >
-          Close Window
-        </button>
-      </div>
-    </div>
-  );
+  // Return absolutely nothing to keep page blank
+  return null;
 } 

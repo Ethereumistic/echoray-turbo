@@ -90,78 +90,8 @@ export function SignupPrompt({
   
   // Check URL params on load - user might be redirected here with auth info
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authCompleted = params.get("auth");
-    const timestamp = params.get("t");
-    
-    if (authCompleted === "success") {
-      logDebug(`🔄 Detected auth redirect with timestamp: ${timestamp}`);
-      
-      // Check localStorage for auth data when redirected back
-      setTimeout(() => {
-        try {
-          const authDataStr = localStorage.getItem('echoray-auth-data');
-          if (authDataStr) {
-            logDebug('📦 Found auth data in localStorage after redirect');
-            const authData = JSON.parse(authDataStr);
-            
-            if (authData?.source === 'echoray-auth-callback' && 
-                authData?.type === 'SURVEY_AUTH_COMPLETE' && 
-                authData?.userId) {
-              
-              logDebug(`✅ Processing auth data from redirect: ${JSON.stringify(authData)}`);
-              localStorage.removeItem('echoray-auth-data'); // Remove it once processed
-              
-              setAuthCompleted(true);
-              
-              // Store session token if available
-              if (authData.sessionToken) {
-                try {
-                  sessionStorage.setItem('clerk-session-token', authData.sessionToken);
-                  logDebug('✅ Stored session token from redirect auth data');
-                } catch (e) {
-                  logDebug('❌ Could not store session token in sessionStorage');
-                }
-              }
-              
-              // Try to close the auth window after successful processing
-              try {
-                if (authWindowRef.current && !authWindowRef.current.closed) {
-                  logDebug('🔚 Closing auth window after successful authentication');
-                  authWindowRef.current.close();
-                }
-              } catch (closeError) {
-                logDebug(`⚠️ Could not close auth window: ${closeError}`);
-              }
-              
-              onComplete(authData.userId);
-              return;
-            }
-          }
-        } catch (e) {
-          logDebug(`❌ Error processing redirect auth data: ${e}`);
-        }
-        
-        // If no localStorage data found, check if we have URL-based auth info
-        const userId = params.get("userId");
-        if (userId) {
-          logDebug(`✅ Found userId in URL params: ${userId}`);
-          setAuthCompleted(true);
-          
-          // Try to close the auth window
-          try {
-            if (authWindowRef.current && !authWindowRef.current.closed) {
-              logDebug('🔚 Closing auth window after URL-based authentication');
-              authWindowRef.current.close();
-            }
-          } catch (closeError) {
-            logDebug(`⚠️ Could not close auth window: ${closeError}`);
-          }
-          
-          onComplete(userId);
-        }
-      }, 500); // Small delay to ensure localStorage is updated
-    }
+    // This effect is no longer needed since auth window will close itself
+    // instead of redirecting to main site. Keeping localStorage polling as primary method.
   }, [onComplete]);
   
   // Handle message from auth window
