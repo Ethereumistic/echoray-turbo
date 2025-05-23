@@ -11,14 +11,22 @@ import {
   NavigationMenuTrigger,
 } from '@repo/design-system/components/ui/navigation-menu';
 import { env } from '@repo/env';
-import { Menu, MoveRight, X } from 'lucide-react';
+import { Menu, MoveRight, X, User, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useCrossDomainAuth } from '../../hooks/use-cross-domain-auth';
 
 import Image from 'next/image';
 import Logo from './logo1.svg';
 
 export const Header = () => {
+  const { authenticated, user, loading, error, debug, signOut } = useCrossDomainAuth();
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('🎨 Header re-rendered with auth status:', { authenticated, user, loading, error, debug });
+  }, [authenticated, user, loading, error, debug]);
+
   const navigationItems = [
     {
       title: 'Home',
@@ -60,6 +68,58 @@ export const Header = () => {
   ];
 
   const [isOpen, setOpen] = useState(false);
+
+  // Handle sign out with loading state
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
+  };
+
+  // Render auth buttons based on authentication status
+  const renderAuthButtons = () => {
+    if (loading) {
+      return (
+        <div className="flex gap-4">
+          <Button variant="ghost" disabled>
+            Checking...
+          </Button>
+        </div>
+      );
+    }
+
+    if (authenticated && user) {
+      return (
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" className="hidden md:inline" onClick={handleSignOut}>
+
+            Sign out
+          </Button>
+          <Button variant="default" asChild>
+            <Link href={`${env.NEXT_PUBLIC_APP_URL}`}>
+              Dashboard
+            </Link>
+          </Button>
+
+        </div>
+      );
+    }
+
+    // Not authenticated - show default sign in/up buttons
+    return (
+      <div className="flex gap-4">
+        <Button variant="outline" asChild>
+          <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>Sign in</Link>
+        </Button>
+        <Button variant="default" asChild>
+          <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>Get started</Link>
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <header className="sticky top-0 left-0 z-40 w-full border-b bg-background">
       <div className="container relative mx-auto flex min-h-20 flex-row items-center gap-4 lg:grid lg:grid-cols-3">
@@ -141,12 +201,7 @@ export const Header = () => {
           </Button>
           <div className="hidden border-r md:inline" />
           <ModeToggle />
-          <Button variant="outline" asChild>
-            <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>Sign in</Link>
-          </Button>
-          <Button variant="default" asChild>
-            <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>Get started</Link>
-          </Button>
+          {renderAuthButtons()}
         </div>
         <div className="flex w-12 shrink items-end justify-end lg:hidden">
           <Button variant="ghost" onClick={() => setOpen(!isOpen)}>
@@ -191,10 +246,61 @@ export const Header = () => {
                   </div>
                 </div>
               ))}
+              
+              {/* Mobile auth section */}
+              <div className="border-t pt-4">
+                {authenticated && user ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      Welcome, {user.firstName || 'User'}
+                    </p>
+                    <Link
+                      href={`${env.NEXT_PUBLIC_APP_URL}`}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-lg">Dashboard</span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center justify-between text-left"
+                    >
+                      <span className="text-lg">Sign out</span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-lg">Sign in</span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </Link>
+                    <Link
+                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-lg">Get started</span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
       </div>
+      
+      {/* Debug info - only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-100 dark:bg-yellow-900 p-2 text-xs border-b">
+          <strong>Auth Debug:</strong> {loading ? 'Loading...' : authenticated ? `✅ Authenticated as ${user?.firstName || 'User'}` : '❌ Not authenticated'} 
+          {error && <span className="text-red-600 ml-2">Error: {error}</span>}
+          {debug && <span className="ml-2">({debug})</span>}
+        </div>
+      )}
     </header>
   );
 };
