@@ -89,14 +89,14 @@ export function SignupPrompt({
   // Handle message from auth window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      logDebug(`Received message from ${event.origin}: ${JSON.stringify(event.data)}`);
+      logDebug(`📨 Received message from ${event.origin}: ${JSON.stringify(event.data)}`);
       
       // Accept messages from any origin in development, but be more specific in production
       if (process.env.NODE_ENV === 'production' && 
           !event.origin.includes('echoray.io') && 
           !event.origin.includes('app.echoray.io') && 
           !event.origin.includes('api.echoray.io')) {
-        logDebug(`Rejected message from unauthorized origin: ${event.origin}`);
+        logDebug(`🚫 Rejected message from unauthorized origin: ${event.origin}`);
         return;
       }
       
@@ -112,10 +112,17 @@ export function SignupPrompt({
         return;
       }
       
-      logDebug(`Processing message of type: ${event.data.type}`);
+      logDebug(`🔍 Processing message of type: ${event.data.type}`);
       
+      // Handle auth callback "alive" messages
+      if (event.data.type === "AUTH_CALLBACK_ALIVE") {
+        logDebug(`💓 Auth callback is alive at: ${event.data.url}`);
+        return;
+      }
+      
+      // Handle auth completion messages
       if (event.data?.type === "SURVEY_AUTH_COMPLETE" && event.data?.userId) {
-        logDebug(`✅ Received auth completion from window: ${event.data.userId}`);
+        logDebug(`✅ Received auth completion from ${event.data.source || 'window'}: ${event.data.userId}`);
         setAuthCompleted(true);
         
         // Store session token if provided
