@@ -89,37 +89,61 @@ export function SignupPrompt({
   // Handle message from auth window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      logDebug(`Received message from ${event.origin}: ${JSON.stringify(event.data)}`);
+      
       // Accept messages from any origin in development, but be more specific in production
       if (process.env.NODE_ENV === 'production' && 
           !event.origin.includes('echoray.io') && 
           !event.origin.includes('app.echoray.io') && 
           !event.origin.includes('api.echoray.io')) {
+        logDebug(`Rejected message from unauthorized origin: ${event.origin}`);
         return;
       }
       
-      logDebug(`Received message from ${event.origin}: ${JSON.stringify(event.data)}`);
+      // Filter out non-survey related messages
+      if (!event.data || typeof event.data !== 'object') {
+        return;
+      }
+      
+      // Handle React DevTools and other irrelevant messages
+      if (event.data.source === 'react-devtools-bridge' || 
+          event.data.target === 'metamask-inpage' ||
+          !event.data.type) {
+        return;
+      }
+      
+      logDebug(`Processing message of type: ${event.data.type}`);
       
       if (event.data?.type === "SURVEY_AUTH_COMPLETE" && event.data?.userId) {
-        logDebug(`Received auth completion from window: ${event.data.userId}`);
+        logDebug(`✅ Received auth completion from window: ${event.data.userId}`);
         setAuthCompleted(true);
         
         // Store session token if provided
         if (event.data.sessionToken) {
-          logDebug('Storing session token for API requests');
+          logDebug('✅ Storing session token for API requests');
           try {
             // Store temporarily for use in API calls
             sessionStorage.setItem('clerk-session-token', event.data.sessionToken);
+            logDebug('✅ Session token stored successfully');
           } catch (e) {
-            logDebug('Could not store session token in sessionStorage');
+            logDebug('❌ Could not store session token in sessionStorage');
           }
+        } else {
+          logDebug('⚠️ No session token provided in auth completion message');
         }
         
         onComplete(event.data.userId);
+      } else {
+        logDebug(`❌ Invalid message - missing type or userId. Type: ${event.data?.type}, UserId: ${event.data?.userId}`);
       }
     };
     
+    logDebug('📡 Setting up message event listener');
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    return () => {
+      logDebug('📡 Removing message event listener');
+      window.removeEventListener("message", handleMessage);
+    };
   }, [onComplete]);
   
   // Function to open sign-up/sign-in window
@@ -273,38 +297,38 @@ export function SignupPrompt({
         }
         
         // Also check localStorage periodically in case window communication fails
-        if (authTimeElapsed % 3 === 0) {
+        if (authTimeElapsed % 2 === 0) { // Check every 2 seconds instead of 3
           try {
             const authDataStr = localStorage.getItem('echoray-auth-data');
             if (authDataStr) {
-              logDebug('Checking localStorage for auth data');
+              logDebug('📦 Checking localStorage for auth data');
               const authData = JSON.parse(authDataStr);
               
               if (authData?.source === 'echoray-auth-callback' && 
                   authData?.type === 'SURVEY_AUTH_COMPLETE' && 
                   !authCompleted) {
                 
-                logDebug(`Found auth data in localStorage: ${JSON.stringify(authData)}`);
+                logDebug(`✅ Found auth data in localStorage: ${JSON.stringify(authData)}`);
                 localStorage.removeItem('echoray-auth-data'); // Remove it once processed
                 
                 setAuthCompleted(true);
                 
                 if (authData?.userId) {
-                  logDebug(`Using userId from localStorage: ${authData.userId}`);
+                  logDebug(`✅ Using userId from localStorage: ${authData.userId}`);
                   
                   // Store session token if available
                   if (authData.sessionToken) {
                     try {
                       sessionStorage.setItem('clerk-session-token', authData.sessionToken);
-                      logDebug('Stored session token from localStorage data');
+                      logDebug('✅ Stored session token from localStorage data');
                     } catch (e) {
-                      logDebug('Could not store session token in sessionStorage');
+                      logDebug('❌ Could not store session token in sessionStorage');
                     }
                   }
                   
                   onComplete(authData.userId);
                 } else {
-                  logDebug('No userId in localStorage data, attempting to fetch from API');
+                  logDebug('⚠️ No userId in localStorage data, attempting to fetch from API');
                   await fetchCurrentUser(authData.sessionToken);
                 }
                 
@@ -315,6 +339,23 @@ export function SignupPrompt({
             }
           } catch (e) {
             // Ignore localStorage errors
+          }
+          
+          // Also try to check sessionStorage for any stored token
+          try {
+            const storedToken = sessionStorage.getItem('clerk-session-token');
+            if (storedToken && !authCompleted) {
+              logDebug('🔑 Found session token in sessionStorage, attempting direct auth check');
+              await fetchCurrentUser(storedToken);
+              
+              if (authCompleted) {
+                clearInterval(checkInterval);
+                checkIntervalRef.current = null;
+                return;
+              }
+            }
+          } catch (e) {
+            // Ignore sessionStorage errors
           }
         }
         
