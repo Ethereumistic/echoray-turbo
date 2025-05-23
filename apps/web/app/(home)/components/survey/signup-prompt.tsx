@@ -20,6 +20,7 @@ export function SignupPrompt({
   const [debug, setDebug] = useState<string[]>([]);
   const authWindowRef = useRef<Window | null>(null);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const windowCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Helper function to log debug messages
   const logDebug = (msg: string) => {
@@ -123,6 +124,16 @@ export function SignupPrompt({
                 }
               }
               
+              // Try to close the auth window after successful processing
+              try {
+                if (authWindowRef.current && !authWindowRef.current.closed) {
+                  logDebug('🔚 Closing auth window after successful authentication');
+                  authWindowRef.current.close();
+                }
+              } catch (closeError) {
+                logDebug(`⚠️ Could not close auth window: ${closeError}`);
+              }
+              
               onComplete(authData.userId);
               return;
             }
@@ -136,6 +147,17 @@ export function SignupPrompt({
         if (userId) {
           logDebug(`✅ Found userId in URL params: ${userId}`);
           setAuthCompleted(true);
+          
+          // Try to close the auth window
+          try {
+            if (authWindowRef.current && !authWindowRef.current.closed) {
+              logDebug('🔚 Closing auth window after URL-based authentication');
+              authWindowRef.current.close();
+            }
+          } catch (closeError) {
+            logDebug(`⚠️ Could not close auth window: ${closeError}`);
+          }
+          
           onComplete(userId);
         }
       }, 500); // Small delay to ensure localStorage is updated
@@ -256,6 +278,21 @@ export function SignupPrompt({
       let authTimeElapsed = 0;
       let authSuccessful = false;
       
+      // Set up a timeout to close the auth window after 60 seconds as a safety measure
+      const windowCloseTimeout = setTimeout(() => {
+        if (authWindowRef.current && !authWindowRef.current.closed && !authSuccessful) {
+          logDebug('⏰ Auto-closing auth window after 60 seconds timeout');
+          try {
+            authWindowRef.current.close();
+          } catch (e) {
+            logDebug(`⚠️ Could not auto-close auth window: ${e}`);
+          }
+        }
+      }, 60000); // 60 seconds
+      
+      // Store the timeout reference
+      windowCloseTimeoutRef.current = windowCloseTimeout;
+      
       const checkInterval = setInterval(async () => {
         authTimeElapsed += 1;
         
@@ -293,9 +330,23 @@ export function SignupPrompt({
                   }
                 }
                 
+                // Try to close the auth window after successful processing
+                try {
+                  if (authWindowRef.current && !authWindowRef.current.closed) {
+                    logDebug('🔚 Closing auth window after localStorage authentication');
+                    authWindowRef.current.close();
+                  }
+                } catch (closeError) {
+                  logDebug(`⚠️ Could not close auth window: ${closeError}`);
+                }
+                
                 onComplete(authData.userId);
                 clearInterval(checkInterval);
+                if (windowCloseTimeoutRef.current) {
+                  clearTimeout(windowCloseTimeoutRef.current);
+                }
                 checkIntervalRef.current = null;
+                windowCloseTimeoutRef.current = null;
                 return;
               } else {
                 logDebug(`❌ Invalid auth data structure: missing required fields`);
@@ -312,7 +363,11 @@ export function SignupPrompt({
         if (authCompleted) {
           logDebug('Authentication already completed via message event');
           clearInterval(checkInterval);
+          if (windowCloseTimeoutRef.current) {
+            clearTimeout(windowCloseTimeoutRef.current);
+          }
           checkIntervalRef.current = null;
+          windowCloseTimeoutRef.current = null;
           return;
         }
         
@@ -333,6 +388,9 @@ export function SignupPrompt({
     return () => {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
+      }
+      if (windowCloseTimeoutRef.current) {
+        clearTimeout(windowCloseTimeoutRef.current);
       }
     };
   }, []);
