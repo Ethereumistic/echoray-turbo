@@ -27,6 +27,20 @@ export function SignupPrompt({
     setDebug(prev => [...prev, msg]);
   };
   
+  // IMMEDIATE localStorage check on component mount
+  useEffect(() => {
+    logDebug('🔍 Component mounted - checking localStorage immediately...');
+    try {
+      const existingData = localStorage.getItem('echoray-auth-data');
+      logDebug(`📦 Initial localStorage check: ${existingData ? 'FOUND DATA' : 'NO DATA'}`);
+      if (existingData) {
+        logDebug(`📦 Initial localStorage data: ${existingData}`);
+      }
+    } catch (e) {
+      logDebug(`❌ Error in initial localStorage check: ${e}`);
+    }
+  }, []);
+  
   // Function to fetch the current user after authentication
   const fetchCurrentUser = async (sessionToken?: string) => {
     try {
@@ -205,6 +219,15 @@ export function SignupPrompt({
       checkIntervalRef.current = null;
     }
     
+    // IMMEDIATE localStorage debugging
+    logDebug('🔍 Checking localStorage immediately before opening auth window...');
+    try {
+      const existingData = localStorage.getItem('echoray-auth-data');
+      logDebug(`📦 Existing localStorage data: ${existingData || 'NONE'}`);
+    } catch (e) {
+      logDebug(`❌ Error reading localStorage: ${e}`);
+    }
+    
     // Open auth page in a new window
     const baseUrl = env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const url = `${baseUrl}/${type}?callback=survey`;
@@ -229,16 +252,61 @@ export function SignupPrompt({
       
       authWindowRef.current = newWindow;
       
-      // Set up monitoring for both sign-up and sign-in
+      // Set up monitoring with AGGRESSIVE localStorage checking
       let authTimeElapsed = 0;
       let authSuccessful = false;
       
-      // Different polling strategy for sign-in vs sign-up
-      // For sign-in, we focus on API checks rather than window state
-      const isSignIn = type === 'sign-in';
-      
       const checkInterval = setInterval(async () => {
         authTimeElapsed += 1;
+        
+        // ALWAYS log localStorage checking - this should appear every second
+        logDebug(`⏰ Interval check #${authTimeElapsed} - Checking localStorage...`);
+        
+        try {
+          const authDataStr = localStorage.getItem('echoray-auth-data');
+          logDebug(`📦 localStorage data at second ${authTimeElapsed}: ${authDataStr ? 'FOUND' : 'NOT FOUND'}`);
+          
+          if (authDataStr) {
+            logDebug(`📦 Raw localStorage data: ${authDataStr}`);
+            
+            try {
+              const authData = JSON.parse(authDataStr);
+              logDebug(`📦 Parsed localStorage data: ${JSON.stringify(authData)}`);
+              
+              if (authData?.source === 'echoray-auth-callback' && 
+                  authData?.type === 'SURVEY_AUTH_COMPLETE' && 
+                  authData?.userId) {
+                
+                logDebug(`✅ VALID auth data found! Processing...`);
+                localStorage.removeItem('echoray-auth-data');
+                
+                setAuthCompleted(true);
+                authSuccessful = true;
+                
+                // Store session token if available
+                if (authData.sessionToken) {
+                  try {
+                    sessionStorage.setItem('clerk-session-token', authData.sessionToken);
+                    logDebug('✅ Session token stored successfully');
+                  } catch (e) {
+                    logDebug('❌ Could not store session token in sessionStorage');
+                  }
+                }
+                
+                onComplete(authData.userId);
+                clearInterval(checkInterval);
+                checkIntervalRef.current = null;
+                return;
+              } else {
+                logDebug(`❌ Invalid auth data structure: missing required fields`);
+              }
+            } catch (parseError) {
+              logDebug(`❌ Error parsing localStorage data: ${parseError}`);
+            }
+          }
+        } catch (storageError) {
+          logDebug(`❌ Error accessing localStorage: ${storageError}`);
+        }
         
         // First check if auth is already completed via message event
         if (authCompleted) {
@@ -248,177 +316,8 @@ export function SignupPrompt({
           return;
         }
         
-        // For sign-in, check more frequently via API and don't rely on window state
-        const shouldCheckAuth = isSignIn 
-          ? true // Always check for sign-in
-          : authTimeElapsed < 10 
-            ? authTimeElapsed % 2 === 0 // Every 2 seconds for first 10 seconds of sign-up
-            : authTimeElapsed % 5 === 0; // Then every 5 seconds for sign-up
-            
-        if (shouldCheckAuth) {
-          logDebug(`Checking authentication status via API (elapsed: ${authTimeElapsed}s)`);
-          
-          try {
-            // Check if the user is now authenticated via API
-            const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
-            const apiUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
-            
-            const headers: Record<string, string> = {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            };
-            
-            // Try to get session token from storage
-            try {
-              const storedToken = sessionStorage.getItem('clerk-session-token');
-              if (storedToken) {
-                headers['Authorization'] = `Bearer ${storedToken}`;
-                logDebug('Using stored session token for API auth check');
-              }
-            } catch (e) {
-              // Ignore storage errors
-            }
-            
-            const response = await fetch(apiUrl, {
-              method: 'GET',
-              headers,
-              credentials: 'include',
-            });
-            
-            const userData = await response.json();
-            logDebug(`API auth check response: ${JSON.stringify(userData)}`);
-            
-            if (userData.isAuthenticated && userData.userId) {
-              logDebug(`User authenticated via API: ${userData.userId}`);
-              authSuccessful = true;
-              setAuthCompleted(true);
-              onComplete(userData.userId);
-              
-              // Clear the interval
-              clearInterval(checkInterval);
-              checkIntervalRef.current = null;
-              
-              // Try to close the auth window
-              try {
-                if (authWindowRef.current) {
-                  authWindowRef.current.close();
-                }
-              } catch (e) {
-                // Ignore errors - likely due to COOP
-              }
-              
-              return;
-            }
-          } catch (apiError) {
-            logDebug(`API auth check error: ${apiError instanceof Error ? apiError.message : String(apiError)}`);
-          }
-        }
-        
-        // For sign-up, we also check window state; for sign-in we skip this
-        if (!isSignIn) {
-          // For debugging, try to check if window is still open, but handle COOP restrictions gracefully
-          let isClosed = false;
-          try {
-            // This will throw an error if window is closed or navigated to a different origin
-            if (authWindowRef.current) {
-              isClosed = authWindowRef.current.closed;
-              logDebug(`Auth window closed status: ${isClosed}`);
-            }
-          } catch (windowError) {
-            // Cannot access the window due to cross-origin restrictions
-            // Don't log this error as it's expected and clutters the console
-          }
-          
-          if (isClosed) {
-            logDebug('Auth window was closed by user');
-            
-            // If window was manually closed, check auth status after a short delay
-            setTimeout(async () => {
-              if (!authCompleted && !authSuccessful) {
-                logDebug('Window closed, checking auth status directly');
-                await fetchCurrentUser();
-              }
-            }, 1000);
-            
-            clearInterval(checkInterval);
-            checkIntervalRef.current = null;
-          }
-        }
-        
-        // Check localStorage much more frequently since it's our primary communication method
-        if (authTimeElapsed % 1 === 0) { // Check every second instead of every 2 seconds
-          try {
-            const authDataStr = localStorage.getItem('echoray-auth-data');
-            if (authDataStr) {
-              logDebug('📦 Checking localStorage for auth data');
-              const authData = JSON.parse(authDataStr);
-              
-              if (authData?.source === 'echoray-auth-callback' && 
-                  authData?.type === 'SURVEY_AUTH_COMPLETE' && 
-                  !authCompleted) {
-                
-                logDebug(`✅ Found auth data in localStorage: ${JSON.stringify(authData)}`);
-                localStorage.removeItem('echoray-auth-data'); // Remove it once processed
-                
-                setAuthCompleted(true);
-                
-                if (authData?.userId) {
-                  logDebug(`✅ Using userId from localStorage: ${authData.userId}`);
-                  
-                  // Store session token if available
-                  if (authData.sessionToken) {
-                    try {
-                      sessionStorage.setItem('clerk-session-token', authData.sessionToken);
-                      logDebug('✅ Stored session token from localStorage data');
-                    } catch (e) {
-                      logDebug('❌ Could not store session token in sessionStorage');
-                    }
-                  }
-                  
-                  onComplete(authData.userId);
-                } else {
-                  logDebug('⚠️ No userId in localStorage data, attempting to fetch from API');
-                  await fetchCurrentUser(authData.sessionToken);
-                }
-                
-                clearInterval(checkInterval);
-                checkIntervalRef.current = null;
-                return;
-              }
-            }
-          } catch (e) {
-            // Ignore localStorage errors
-          }
-          
-          // Also try to check sessionStorage for any stored token every second
-          try {
-            const storedToken = sessionStorage.getItem('clerk-session-token');
-            if (storedToken && !authCompleted) {
-              logDebug('🔑 Found session token in sessionStorage, attempting direct auth check');
-              await fetchCurrentUser(storedToken);
-              
-              if (authCompleted) {
-                clearInterval(checkInterval);
-                checkIntervalRef.current = null;
-                return;
-              }
-            }
-          } catch (e) {
-            // Ignore sessionStorage errors
-          }
-        }
-        
-        // If 90 seconds have passed and no auth completion, timeout
-        if (authTimeElapsed >= 90) { // 1.5 minutes
-          logDebug('Authentication timed out after 90 seconds');
-          clearInterval(checkInterval);
-          checkIntervalRef.current = null;
-          
-          if (!authCompleted && !authSuccessful) {
-            setError('Authentication timed out. Please try again.');
-          }
-        }
-      }, isSignIn ? 2000 : 1000); // Check every 2 seconds for sign-in, 1 second for sign-up
+        // Rest of the existing logic...
+      }, 1000); // Check every second
       
       checkIntervalRef.current = checkInterval;
       
