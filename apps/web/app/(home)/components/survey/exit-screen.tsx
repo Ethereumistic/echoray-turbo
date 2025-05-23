@@ -12,7 +12,7 @@ export function ExitScreen({
     <div className="py-8">
       <div className="flex flex-col items-center text-center gap-6 mb-8">
         <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600">
-          <CheckCircle2 className="h-8 w-8" />
+          <CheckCircle2 className="h-8 w-8" /> Works?
         </div>
       </div>
       
