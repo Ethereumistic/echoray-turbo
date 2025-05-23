@@ -19,8 +19,10 @@ const RootLayout = ({ children }: RootLayoutProperties) => (
       <Suspense fallback={<div>Loading authentication...</div>}>
         <ClerkProvider
           publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-          signInUrl="/sign-in"
-          signUpUrl="/sign-up"
+          afterSignInUrl={`${env.NEXT_PUBLIC_APP_URL}`}
+          afterSignUpUrl={`${env.NEXT_PUBLIC_APP_URL}`}
+          signInUrl={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}
+          signUpUrl={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}
         >
           <DesignSystemProvider>
             <Header />

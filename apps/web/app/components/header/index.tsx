@@ -13,8 +13,8 @@ import {
 import { env } from '@repo/env';
 import { Menu, MoveRight, X, LogOut, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { useAuth, useClerk } from '@clerk/nextjs';
+import { useState } from 'react';
+import { SignedIn, SignedOut, SignOutButton } from '@clerk/nextjs';
 
 import Image from 'next/image';
 import Logo from './logo1.svg';
@@ -61,154 +61,6 @@ export const Header = () => {
   ];
 
   const [isOpen, setOpen] = useState(false);
-  const { user } = useAuth();
-  const { signOut } = useClerk();
-  
-  // Cross-domain authentication state
-  const [crossDomainUser, setCrossDomainUser] = useState<any>(null);
-  const [authCheckLoading, setAuthCheckLoading] = useState(true);
-  
-  // Check authentication status from app domain
-  useEffect(() => {
-    const checkCrossDomainAuth = async () => {
-      try {
-        // First check if we have a local Clerk user
-        if (user) {
-          setCrossDomainUser(user);
-          setAuthCheckLoading(false);
-          return;
-        }
-        
-        // If no local user, check session token in storage
-        const sessionToken = sessionStorage.getItem('clerk-session-token');
-        if (sessionToken) {
-          // Verify the session token with our API
-          const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
-          const apiUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
-          
-          const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${sessionToken}`,
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-          });
-          
-          if (response.ok) {
-            const authData = await response.json();
-            if (authData.isAuthenticated && authData.userId) {
-              setCrossDomainUser({ id: authData.userId });
-            } else {
-              // Session is invalid, clear it
-              console.log('🔄 Session invalid, clearing auth state');
-              sessionStorage.removeItem('clerk-session-token');
-              localStorage.removeItem('echoray-auth-data');
-              setCrossDomainUser(null);
-            }
-          } else {
-            // API call failed, likely session expired
-            console.log('🔄 Session validation failed, clearing auth state');
-            sessionStorage.removeItem('clerk-session-token');
-            localStorage.removeItem('echoray-auth-data');
-            setCrossDomainUser(null);
-          }
-        } else {
-          // No session token, ensure user state is clear
-          setCrossDomainUser(null);
-        }
-      } catch (error) {
-        console.log('Cross-domain auth check failed:', error);
-      } finally {
-        setAuthCheckLoading(false);
-      }
-    };
-    
-    checkCrossDomainAuth();
-    
-    // Listen for session token changes (from survey authentication)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'clerk-session-token' && e.newValue) {
-        // Session token was added, re-check authentication
-        setAuthCheckLoading(true);
-        checkCrossDomainAuth();
-      }
-    };
-    
-    // Also listen for manual storage updates (not just cross-window)
-    const handleManualStorageCheck = () => {
-      const sessionToken = sessionStorage.getItem('clerk-session-token');
-      if (sessionToken && !crossDomainUser) {
-        setAuthCheckLoading(true);
-        checkCrossDomainAuth();
-      }
-    };
-    
-    // Listen for localStorage auth completion (both survey and navbar)
-    const handleAuthCompletion = () => {
-      try {
-        const authDataStr = localStorage.getItem('echoray-auth-data');
-        if (authDataStr) {
-          const authData = JSON.parse(authDataStr);
-          if (authData?.source === 'echoray-auth-callback' && 
-              (authData?.type === 'SURVEY_AUTH_COMPLETE' || authData?.type === 'NAVBAR_AUTH_COMPLETE') && 
-              authData?.userId && authData?.sessionToken) {
-            
-            console.log('🔄 Header detected auth completion:', authData.type);
-            
-            // Store session token
-            sessionStorage.setItem('clerk-session-token', authData.sessionToken);
-            localStorage.removeItem('echoray-auth-data'); // Clean up
-            
-            // Update auth state
-            setCrossDomainUser({ id: authData.userId });
-            setAuthCheckLoading(false);
-          }
-        }
-      } catch (error) {
-        console.log('Error processing auth completion:', error);
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    // Check for auth completion and session validity
-    const interval = setInterval(() => {
-      handleManualStorageCheck();
-      handleAuthCompletion();
-    }, 2000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [user, crossDomainUser]);
-  
-  // Use either local Clerk user or cross-domain user
-  const currentUser = user || crossDomainUser;
-
-  // Handle sign out with proper cleanup
-  const handleSignOut = async () => {
-    try {
-      // Clear any stored session tokens
-      sessionStorage.removeItem('clerk-session-token');
-      localStorage.removeItem('echoray-auth-data');
-      
-      // Clear cross-domain user state
-      setCrossDomainUser(null);
-      
-      // Sign out from Clerk if user exists locally
-      if (user) {
-        await signOut();
-      }
-      
-      // Redirect to home page to ensure clean state
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Sign out error:', error);
-      // Fallback: still redirect to home
-      window.location.href = '/';
-    }
-  };
 
   return (
     <header className="sticky top-0 left-0 z-40 w-full border-b bg-background">
@@ -286,60 +138,44 @@ export const Header = () => {
           </Link>
         </div>
         <div className="flex w-full justify-end gap-4">
-          {authCheckLoading ? (
-            // Loading state
-            <>
-              <Button variant="ghost" className="hidden md:inline" asChild>
-                <Link href="/contact">Contact us</Link>
-              </Button>
-              <div className="hidden border-r md:inline" />
-              <ModeToggle />
-              <Button variant="outline" disabled>
-                Loading...
-              </Button>
-              <Button variant="default" disabled>
-                Loading...
-              </Button>
-            </>
-          ) : currentUser ? (
-            // Signed in user buttons
-            <>
-              <Button variant="ghost" className="hidden md:inline" asChild>
-                <Link href="/contact">Contact us</Link>
-              </Button>
-              <div className="hidden border-r md:inline" />
-              <ModeToggle />
-              <Button 
-                variant="outline" 
-                onClick={handleSignOut}
-                className="gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign out
-              </Button>
-              <Button variant="default" asChild>
-                <Link href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'} className="gap-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Link>
-              </Button>
-            </>
-          ) : (
-            // Not signed in user buttons
-            <>
-              <Button variant="ghost" className="hidden md:inline" asChild>
-                <Link href="/contact">Contact us</Link>
-              </Button>
-              <div className="hidden border-r md:inline" />
-              <ModeToggle />
-              <Button variant="outline" asChild>
-                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in?callback=navbar`}>Sign in</Link>
-              </Button>
-              <Button variant="default" asChild>
-                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up?callback=navbar`}>Get started</Link>
-              </Button>
-            </>
-          )}
+          <SignedIn>
+            <Button variant="ghost" className="hidden md:inline" asChild>
+              <Link href="/contact">Contact us</Link>
+            </Button>
+            <div className="hidden border-r md:inline" />
+            <ModeToggle />
+            <Button 
+              variant="outline" 
+              asChild
+              className="gap-2"
+            >
+              <SignOutButton>
+                <span className="flex items-center gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Sign out
+                </span>
+              </SignOutButton>
+            </Button>
+            <Button variant="default" asChild>
+              <Link href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'} className="gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+          </SignedIn>
+          <SignedOut>
+            <Button variant="ghost" className="hidden md:inline" asChild>
+              <Link href="/contact">Contact us</Link>
+            </Button>
+            <div className="hidden border-r md:inline" />
+            <ModeToggle />
+            <Button variant="outline" asChild>
+              <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>Sign in</Link>
+            </Button>
+            <Button variant="default" asChild>
+              <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>Get started</Link>
+            </Button>
+          </SignedOut>
         </div>
         <div className="flex w-12 shrink items-end justify-end lg:hidden">
           <Button variant="ghost" onClick={() => setOpen(!isOpen)}>
@@ -395,56 +231,43 @@ export const Header = () => {
                   <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
                 </Link>
                 
-                {authCheckLoading ? (
-                  // Loading state for mobile
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg text-muted-foreground">Loading...</span>
-                    </div>
-                  </>
-                ) : currentUser ? (
-                  // Signed in user mobile buttons
-                  <>
-                    <Link
-                      href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-lg flex items-center gap-2">
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
-                      </span>
-                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
-                    </Link>
-                    <button
-                      onClick={handleSignOut}
-                      className="flex items-center justify-between text-left"
-                    >
+                <SignedIn>
+                  <Link
+                    href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-lg flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Dashboard
+                    </span>
+                    <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                  </Link>
+                  <SignOutButton>
+                    <div className="flex items-center justify-between text-left w-full">
                       <span className="text-lg flex items-center gap-2">
                         <LogOut className="h-4 w-4" />
                         Sign out
                       </span>
                       <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
-                    </button>
-                  </>
-                ) : (
-                  // Not signed in user mobile buttons
-                  <>
-                    <Link
-                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-in?callback=navbar`}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-lg">Sign in</span>
-                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
-                    </Link>
-                    <Link
-                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-up?callback=navbar`}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-lg">Get started</span>
-                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
-                    </Link>
-                  </>
-                )}
+                    </div>
+                  </SignOutButton>
+                </SignedIn>
+                <SignedOut>
+                  <Link
+                    href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-lg">Sign in</span>
+                    <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                  </Link>
+                  <Link
+                    href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-lg">Get started</span>
+                    <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                  </Link>
+                </SignedOut>
               </div>
             </div>
           )}
