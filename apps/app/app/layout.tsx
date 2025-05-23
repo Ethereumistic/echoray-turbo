@@ -18,6 +18,8 @@ const RootLayout = ({ children }: RootLayoutProperties) => (
           publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
           signInUrl="/sign-in"
           signUpUrl="/sign-up"
+          afterSignInUrl="/"
+          afterSignUpUrl="/"
         >
           <DesignSystemProvider>{children}</DesignSystemProvider>
         </ClerkProvider>
