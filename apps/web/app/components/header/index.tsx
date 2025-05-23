@@ -13,8 +13,8 @@ import {
 import { env } from '@repo/env';
 import { Menu, MoveRight, X, LogOut, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
-import { SignedIn, SignedOut, SignOutButton } from '@clerk/nextjs';
+import { useState, useEffect } from 'react';
+import { useAuth, SignOutButton } from '@clerk/nextjs';
 
 import Image from 'next/image';
 import Logo from './logo1.svg';
@@ -61,6 +61,70 @@ export const Header = () => {
   ];
 
   const [isOpen, setOpen] = useState(false);
+  const { user: localUser } = useAuth();
+  const [crossDomainUser, setCrossDomainUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  // Combined user state - either local Clerk user or cross-domain user
+  const currentUser = localUser || crossDomainUser;
+  
+  // Check for cross-domain authentication
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (localUser) {
+        setAuthLoading(false);
+        return;
+      }
+      
+      try {
+        // Check for session token from cross-domain auth
+        const sessionToken = sessionStorage.getItem('clerk-session-token');
+        if (sessionToken) {
+          const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
+          const response = await fetch(`${baseUrl}/auth/check`, {
+            headers: {
+              'Authorization': `Bearer ${sessionToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const authData = await response.json();
+            if (authData.isAuthenticated && authData.userId) {
+              setCrossDomainUser({ id: authData.userId });
+            }
+          }
+        }
+        
+        // Also check for localStorage auth data from survey/navbar auth
+        const authDataStr = localStorage.getItem('echoray-auth-data');
+        if (authDataStr) {
+          const authData = JSON.parse(authDataStr);
+          if (authData?.userId && authData?.sessionToken) {
+            sessionStorage.setItem('clerk-session-token', authData.sessionToken);
+            setCrossDomainUser({ id: authData.userId });
+            localStorage.removeItem('echoray-auth-data'); // Clean up
+          }
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    
+    checkAuth();
+    
+    // Recheck every few seconds for auth changes
+    const interval = setInterval(checkAuth, 3000);
+    return () => clearInterval(interval);
+  }, [localUser]);
+  
+  const handleSignOut = () => {
+    sessionStorage.removeItem('clerk-session-token');
+    localStorage.removeItem('echoray-auth-data');
+    setCrossDomainUser(null);
+  };
 
   return (
     <header className="sticky top-0 left-0 z-40 w-full border-b bg-background">
@@ -138,44 +202,64 @@ export const Header = () => {
           </Link>
         </div>
         <div className="flex w-full justify-end gap-4">
-          <SignedIn>
-            <Button variant="ghost" className="hidden md:inline" asChild>
-              <Link href="/contact">Contact us</Link>
-            </Button>
-            <div className="hidden border-r md:inline" />
-            <ModeToggle />
-            <Button 
-              variant="outline" 
-              asChild
-              className="gap-2"
-            >
-              <SignOutButton>
-                <span className="flex items-center gap-2">
-                  <LogOut className="h-4 w-4" />
-                  Sign out
-                </span>
-              </SignOutButton>
-            </Button>
-            <Button variant="default" asChild>
-              <Link href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'} className="gap-2">
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </Link>
-            </Button>
-          </SignedIn>
-          <SignedOut>
-            <Button variant="ghost" className="hidden md:inline" asChild>
-              <Link href="/contact">Contact us</Link>
-            </Button>
-            <div className="hidden border-r md:inline" />
-            <ModeToggle />
-            <Button variant="outline" asChild>
-              <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>Sign in</Link>
-            </Button>
-            <Button variant="default" asChild>
-              <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>Get started</Link>
-            </Button>
-          </SignedOut>
+          {authLoading ? (
+            // Loading state
+            <>
+              <Button variant="ghost" className="hidden md:inline" asChild>
+                <Link href="/contact">Contact us</Link>
+              </Button>
+              <div className="hidden border-r md:inline" />
+              <ModeToggle />
+              <Button variant="outline" disabled>
+                Loading...
+              </Button>
+              <Button variant="default" disabled>
+                Loading...
+              </Button>
+            </>
+          ) : currentUser ? (
+            // Signed in user
+            <>
+              <Button variant="ghost" className="hidden md:inline" asChild>
+                <Link href="/contact">Contact us</Link>
+              </Button>
+              <div className="hidden border-r md:inline" />
+              <ModeToggle />
+              <Button 
+                variant="outline" 
+                asChild
+                className="gap-2"
+              >
+                <SignOutButton onClick={handleSignOut}>
+                  <span className="flex items-center gap-2">
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </span>
+                </SignOutButton>
+              </Button>
+              <Button variant="default" asChild>
+                <Link href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'} className="gap-2">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
+            </>
+          ) : (
+            // Not signed in user
+            <>
+              <Button variant="ghost" className="hidden md:inline" asChild>
+                <Link href="/contact">Contact us</Link>
+              </Button>
+              <div className="hidden border-r md:inline" />
+              <ModeToggle />
+              <Button variant="outline" asChild>
+                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>Sign in</Link>
+              </Button>
+              <Button variant="default" asChild>
+                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>Get started</Link>
+              </Button>
+            </>
+          )}
         </div>
         <div className="flex w-12 shrink items-end justify-end lg:hidden">
           <Button variant="ghost" onClick={() => setOpen(!isOpen)}>
@@ -231,43 +315,53 @@ export const Header = () => {
                   <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
                 </Link>
                 
-                <SignedIn>
-                  <Link
-                    href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="text-lg flex items-center gap-2">
-                      <LayoutDashboard className="h-4 w-4" />
-                      Dashboard
-                    </span>
-                    <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
-                  </Link>
-                  <SignOutButton>
-                    <div className="flex items-center justify-between text-left w-full">
+                {authLoading ? (
+                  // Loading state for mobile
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg text-muted-foreground">Loading...</span>
+                  </div>
+                ) : currentUser ? (
+                  // Signed in user mobile
+                  <>
+                    <Link
+                      href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'}
+                      className="flex items-center justify-between"
+                    >
                       <span className="text-lg flex items-center gap-2">
-                        <LogOut className="h-4 w-4" />
-                        Sign out
+                        <LayoutDashboard className="h-4 w-4" />
+                        Dashboard
                       </span>
                       <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
-                    </div>
-                  </SignOutButton>
-                </SignedIn>
-                <SignedOut>
-                  <Link
-                    href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="text-lg">Sign in</span>
-                    <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
-                  </Link>
-                  <Link
-                    href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="text-lg">Get started</span>
-                    <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
-                  </Link>
-                </SignedOut>
+                    </Link>
+                    <SignOutButton onClick={handleSignOut}>
+                      <div className="flex items-center justify-between text-left w-full">
+                        <span className="text-lg flex items-center gap-2">
+                          <LogOut className="h-4 w-4" />
+                          Sign out
+                        </span>
+                        <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                      </div>
+                    </SignOutButton>
+                  </>
+                ) : (
+                  // Not signed in user mobile
+                  <>
+                    <Link
+                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-lg">Sign in</span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </Link>
+                    <Link
+                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-lg">Get started</span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           )}
