@@ -92,8 +92,8 @@ export function SignupPrompt({
       // Accept messages from any origin in development, but be more specific in production
       if (process.env.NODE_ENV === 'production' && 
           !event.origin.includes('echoray.io') && 
-          !event.origin.includes('echoray.dev') && 
-          !event.origin.includes('echoray.com')) {
+          !event.origin.includes('app.echoray.io') && 
+          !event.origin.includes('api.echoray.io')) {
         return;
       }
       
