@@ -18,12 +18,16 @@ export async function GET(request: Request) {
     
     // Try to get the user ID in different ways
     let userId = null;
+    let authMethod = 'none';
     
     try {
-      // First attempt: Use currentUser() function
+      // First attempt: Use currentUser() function (works when cookies are accessible)
       const user = await currentUser();
-      userId = user?.id;
-      console.log("currentUser result:", { userId: userId || 'none' });
+      if (user?.id) {
+        userId = user.id;
+        authMethod = 'currentUser';
+        console.log("currentUser result:", { userId, authMethod });
+      }
     } catch (authError) {
       console.error("Error with currentUser():", authError);
     }
@@ -32,21 +36,28 @@ export async function GET(request: Request) {
     if (!userId) {
       try {
         const authResult = getAuth(request);
-        userId = authResult?.userId;
-        console.log("getAuth result:", { userId: userId || 'none' });
+        if (authResult?.userId) {
+          userId = authResult.userId;
+          authMethod = 'getAuth';
+          console.log("getAuth result:", { userId, authMethod });
+        }
       } catch (userError) {
         console.error("Error with getAuth():", userError);
       }
     }
     
-    // Third attempt: Try to extract from request headers
+    // Log information about any session tokens provided
     if (!userId) {
       try {
         const authHeader = request.headers.get('authorization');
+        const sessionToken = request.headers.get('x-clerk-session-token');
+        
         if (authHeader && authHeader.startsWith('Bearer ')) {
-          // You would need to verify this token with Clerk
-          // This is just to show the approach
-          console.log("Found authorization header");
+          console.log("Found Bearer token in Authorization header (but couldn't verify due to cross-domain issue)");
+          authMethod = 'bearer-token-provided';
+        } else if (sessionToken) {
+          console.log("Found session token in x-clerk-session-token header (but couldn't verify due to cross-domain issue)");
+          authMethod = 'session-token-provided';
         }
       } catch (headerError) {
         console.error("Error checking headers:", headerError);
@@ -57,7 +68,8 @@ export async function GET(request: Request) {
     if (userId) {
       return corsResponse({
         isAuthenticated: true,
-        userId: userId
+        userId: userId,
+        authMethod
       }, { origin });
     }
     
@@ -65,7 +77,8 @@ export async function GET(request: Request) {
     return corsResponse({
       isAuthenticated: false,
       userId: null,
-      message: "User not authenticated"
+      message: "User not authenticated",
+      authMethod
     }, { origin });
   } catch (error) {
     console.error('Authentication check error:', error);

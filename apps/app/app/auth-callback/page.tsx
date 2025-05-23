@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 
 export default function AuthCallback() {
-  const { userId, isLoaded, isSignedIn } = useAuth();
+  const { userId, isLoaded, isSignedIn, getToken } = useAuth();
   const [status, setStatus] = useState('Initializing authentication...');
   const [messageSent, setMessageSent] = useState(false);
 
@@ -39,31 +39,53 @@ export default function AuthCallback() {
       return;
     }
     
-    try {
-      console.log("Sending authentication data to parent window:", { userId });
-      
-      // Send message to parent window with the user ID
-      opener.postMessage(
-        {
-          type: "SURVEY_AUTH_COMPLETE",
-          userId: userId,
-          isSignedIn: true
-        },
-        "*" // This should ideally be the specific origin
-      );
-      
-      setMessageSent(true);
-      setStatus('Authentication complete! Returning to survey...');
-      
-      // Close this window after a short delay
-      setTimeout(() => {
-        window.close();
-      }, 1500);
-    } catch (error) {
-      console.error("Error sending message to parent window:", error);
-      setStatus('Error completing authentication. Please try again.');
-    }
-  }, [isLoaded, isSignedIn, userId, messageSent]);
+    const sendAuthData = async () => {
+      try {
+        console.log("Sending authentication data to parent window:", { userId });
+        
+        // Get the session token for cross-domain authentication
+        const sessionToken = await getToken();
+        console.log("Retrieved session token for cross-domain auth");
+        
+        // Send message to parent window with the user ID and session token
+        opener.postMessage(
+          {
+            type: "SURVEY_AUTH_COMPLETE",
+            userId: userId,
+            sessionToken: sessionToken,
+            isSignedIn: true
+          },
+          "*" // This should ideally be the specific origin
+        );
+        
+        // Also store in localStorage as backup
+        try {
+          localStorage.setItem('echoray-auth-data', JSON.stringify({
+            source: 'echoray-auth-callback',
+            type: 'SURVEY_AUTH_COMPLETE',
+            userId: userId,
+            sessionToken: sessionToken,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn('Could not store auth data in localStorage:', e);
+        }
+        
+        setMessageSent(true);
+        setStatus('Authentication complete! Returning to survey...');
+        
+        // Close this window after a short delay
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+      } catch (error) {
+        console.error("Error getting session token or sending message:", error);
+        setStatus('Error completing authentication. Please try again.');
+      }
+    };
+    
+    sendAuthData();
+  }, [isLoaded, isSignedIn, userId, getToken, messageSent]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center">

@@ -126,6 +126,16 @@ export function SurveyDialog({
     }
   }
   
+  // Function to get session token for API requests
+  const getSessionToken = (): string | null => {
+    try {
+      return sessionStorage.getItem('clerk-session-token');
+    } catch (e) {
+      console.warn('Could not access session token from storage');
+      return null;
+    }
+  };
+
   const handleSignupComplete = async (userId: string) => {
     try {
       setIsSubmitting(true)
@@ -162,76 +172,8 @@ export function SurveyDialog({
       
       // First, ensure the user exists in our database
       const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
-      const userApiUrl = baseUrl.endsWith('/') ? `${baseUrl}users/signup` : `${baseUrl}/users/signup`;
       
-      console.log('Ensuring user exists in database:', userId);
-      let userCreated = false;
-      
-      // This step makes sure the user exists in our database
-      try {
-        const userResponse = await fetch(userApiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            userId: userId,
-          }),
-          credentials: 'include', // Include credentials for authentication
-        });
-        
-        // Check if we got a valid JSON response
-        let userData;
-        try {
-          userData = await userResponse.json();
-        } catch (jsonError) {
-          console.error('Invalid JSON response from user API:', await userResponse.text());
-          throw new Error('Invalid response from server. Please try again.');
-        }
-        
-        if (!userResponse.ok) {
-          console.error('Failed to create/verify user:', userData);
-          throw new Error(userData.error || 'Failed to create/verify user');
-        }
-        
-        console.log('User created/verified successfully:', userData);
-        userCreated = true;
-      } catch (userError) {
-        console.error('Error creating/verifying user:', userError);
-        // Instead of continuing despite the error, we'll check authentication and retry
-        console.log('Checking authentication status before continuing...');
-        
-        try {
-          // Check if the user is authenticated
-          const authCheckUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
-          const authResponse = await fetch(authCheckUrl, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            credentials: 'include',
-          });
-          
-          const authData = await authResponse.json();
-          console.log('Auth check response:', authData);
-          
-          if (authData.isAuthenticated && authData.userId) {
-            console.log('User is authenticated, proceeding with survey submission');
-            userCreated = true;
-          } else {
-            throw new Error('User authentication failed. Please try again.');
-          }
-        } catch (authError) {
-          console.error('Authentication check failed:', authError);
-          throw new Error('Failed to verify authentication. Please try again.');
-        }
-      }
-      
-      if (!userCreated) {
-        throw new Error('Failed to create or verify user account. Please try again.');
-      }
+      await ensureUserExists(userId, baseUrl);
       
       // Now, submit the survey data
       const surveyApiUrl = baseUrl.endsWith('/') ? `${baseUrl}survey` : `${baseUrl}/survey`;
@@ -240,63 +182,143 @@ export function SurveyDialog({
       console.log('Survey data:', submissionData);
       console.log('Using userId:', userId);
       
-      try {
-        const response = await fetch(surveyApiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            ...submissionData,
-            // Pass the userId from auth
-            userId: userId
-          }),
-          credentials: 'include', // Include credentials for authentication
-        });
-        
-        // First check if the response is valid JSON
-        let responseData;
-        try {
-          responseData = await response.json();
-        } catch (jsonError) {
-          console.error('Invalid JSON response from survey API:', await response.text());
-          throw new Error('Invalid response from server. Please try again.');
-        }
-        
-        if (!response.ok) {
-          console.error('Failed to submit survey:', responseData);
-          throw new Error(responseData.error || 'Failed to submit survey');
-        }
-        
-        console.log('Survey submitted successfully:', responseData);
-        
-        // Clear localStorage after successful submission
-        try {
-          localStorage.removeItem('echoray-survey-data');
-          console.log('Cleared survey data from localStorage after successful submission');
-        } catch (e) {
-          console.error('Error clearing localStorage:', e);
-        }
-        
-        // Show the exit screen
-        setShowSignup(false)
-        setShowExit(true)
-      } catch (fetchError: unknown) {
-        console.error('Fetch error:', fetchError);
-        const errorMessage = fetchError instanceof Error 
-          ? fetchError.message 
-          : 'Unknown network error';
-        throw new Error(`Network error: ${errorMessage}`);
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      // Add session token if available
+      const sessionToken = getSessionToken();
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`;
+        console.log('Using session token for survey submission');
       }
+      
+      const response = await fetch(surveyApiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...submissionData,
+          // Pass the userId from auth
+          userId: userId
+        }),
+        credentials: 'include', // Include credentials for authentication
+      });
+      
+      // First check if the response is valid JSON
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (jsonError) {
+        console.error('Invalid JSON response from survey API:', await response.text());
+        throw new Error('Invalid response from server. Please try again.');
+      }
+      
+      if (!response.ok) {
+        console.error('Failed to submit survey:', responseData);
+        throw new Error(responseData.error || 'Failed to submit survey');
+      }
+      
+      console.log('Survey submitted successfully:', responseData);
+      
+      // Clear localStorage after successful submission
+      try {
+        localStorage.removeItem('echoray-survey-data');
+        console.log('Cleared survey data from localStorage after successful submission');
+      } catch (e) {
+        console.error('Error clearing localStorage:', e);
+      }
+      
+      // Show the exit screen
+      setShowSignup(false)
+      setShowExit(true)
     } catch (error) {
       console.error('Error submitting survey:', error);
       alert('There was an error submitting your survey. Please try again.');
     } finally {
       setIsSubmitting(false)
     }
-  }
-  
+  };
+
+  // Function to create/verify user in database
+  const ensureUserExists = async (userId: string, baseUrl: string) => {
+    console.log('Ensuring user exists in database:', userId);
+    
+    try {
+      const userApiUrl = baseUrl.endsWith('/') ? `${baseUrl}users/signup` : `${baseUrl}/users/signup`;
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      // Add session token if available
+      const sessionToken = getSessionToken();
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`;
+        console.log('Using session token for user creation/verification');
+      }
+      
+      const userResponse = await fetch(userApiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: userId,
+          // Additional user data could go here
+        }),
+        credentials: 'include'
+      });
+      
+      if (!userResponse.ok) {
+        const errorData = await userResponse.json();
+        throw new Error(errorData.error || 'Failed to create/verify user');
+      }
+      
+      const userData = await userResponse.json();
+      console.log('User created/verified successfully:', userData);
+      return userData;
+    } catch (userError) {
+      console.error('Error creating/verifying user:', userError);
+      // Instead of continuing despite the error, we'll check authentication and retry
+      console.log('Checking authentication status before continuing...');
+      
+      try {
+        // Check if the user is authenticated
+        const authCheckUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
+        
+        const authHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        };
+        
+        // Add session token if available
+        const sessionToken = getSessionToken();
+        if (sessionToken) {
+          authHeaders['Authorization'] = `Bearer ${sessionToken}`;
+        }
+        
+        const authResponse = await fetch(authCheckUrl, {
+          method: 'GET',
+          headers: authHeaders,
+          credentials: 'include',
+        });
+        
+        const authData = await authResponse.json();
+        console.log('Auth check response:', authData);
+        
+        if (authData.isAuthenticated && authData.userId) {
+          console.log('User is authenticated, proceeding with survey submission');
+          return { success: true, userId: authData.userId };
+        } else {
+          throw new Error('User authentication failed. Please try again.');
+        }
+      } catch (authError) {
+        console.error('Authentication check failed:', authError);
+        throw new Error('Failed to verify authentication. Please try again.');
+      }
+    }
+  };
+
   const handleClose = () => {
     if (showExit) {
       window.location.href = "/dashboard";

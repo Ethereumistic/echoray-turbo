@@ -28,18 +28,26 @@ export function SignupPrompt({
   };
   
   // Function to fetch the current user after authentication
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = async (sessionToken?: string) => {
     try {
       logDebug('Fetching current user from API...');
       const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
       const apiUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
       
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      // Add session token if available
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`;
+        logDebug('Using session token for authentication');
+      }
+      
       const response = await fetch(apiUrl, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers,
         credentials: 'include', // Important to include credentials for auth
       });
       
@@ -78,87 +86,40 @@ export function SignupPrompt({
     }
   }, [onComplete]);
   
-  // Listen for messages from the sign-up window
+  // Handle message from auth window
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Only process messages from our auth callback with the right source identifier
-      if (event.data?.source === 'echoray-auth-callback') {
-        logDebug(`Received auth callback message: ${JSON.stringify(event.data)}`);
+      // Accept messages from any origin in development, but be more specific in production
+      if (process.env.NODE_ENV === 'production' && 
+          !event.origin.includes('echoray.io') && 
+          !event.origin.includes('echoray.dev') && 
+          !event.origin.includes('echoray.com')) {
+        return;
+      }
+      
+      logDebug(`Received message from ${event.origin}: ${JSON.stringify(event.data)}`);
+      
+      if (event.data?.type === "SURVEY_AUTH_COMPLETE" && event.data?.userId) {
+        logDebug(`Received auth completion from window: ${event.data.userId}`);
+        setAuthCompleted(true);
         
-        // Check if this is a message from our auth-callback page
-        if (event.data?.type === 'SURVEY_AUTH_COMPLETE') {
-          logDebug(`Authentication completed message received: ${JSON.stringify(event.data)}`);
-          setAuthCompleted(true);
-          
-          // Clear any interval checking for window closure
-          if (checkIntervalRef.current) {
-            clearInterval(checkIntervalRef.current);
-            checkIntervalRef.current = null;
+        // Store session token if provided
+        if (event.data.sessionToken) {
+          logDebug('Storing session token for API requests');
+          try {
+            // Store temporarily for use in API calls
+            sessionStorage.setItem('clerk-session-token', event.data.sessionToken);
+          } catch (e) {
+            logDebug('Could not store session token in sessionStorage');
           }
-          
-          // Process the authentication with appropriate delay based on flow type
-          const processingDelay = event.data?.isSignUp ? 1500 : 500;
-          
-          setTimeout(() => {
-            if (event.data?.userId) {
-              // If we have the userId directly from the message, use it
-              logDebug(`Using userId from message: ${event.data.userId}`);
-              onComplete(event.data.userId);
-            } else {
-              // If we don't have the userId, we need to fetch the current user from the API
-              logDebug('No userId in message, attempting to fetch from API');
-              fetchCurrentUser();
-            }
-          }, processingDelay);
         }
+        
+        onComplete(event.data.userId);
       }
     };
     
-    window.addEventListener('message', handleMessage);
-    
-    // Also set up a localStorage fallback checker
-    const localStorageInterval = setInterval(() => {
-      try {
-        const authDataStr = localStorage.getItem('echoray-auth-data');
-        if (authDataStr) {
-          const authData = JSON.parse(authDataStr);
-          
-          if (authData?.source === 'echoray-auth-callback' && 
-              authData?.type === 'SURVEY_AUTH_COMPLETE' && 
-              !authCompleted) {
-            
-            logDebug(`Found auth data in localStorage: ${JSON.stringify(authData)}`);
-            localStorage.removeItem('echoray-auth-data'); // Remove it once processed
-            
-            setAuthCompleted(true);
-            
-            // Clear any interval checking for window closure
-            if (checkIntervalRef.current) {
-              clearInterval(checkIntervalRef.current);
-              checkIntervalRef.current = null;
-            }
-            
-            // Process the authentication after a short delay
-            setTimeout(() => {
-              if (authData?.userId) {
-                logDebug(`Using userId from localStorage: ${authData.userId}`);
-                onComplete(authData.userId);
-              } else {
-                logDebug('No userId in localStorage data, attempting to fetch from API');
-                fetchCurrentUser();
-              }
-            }, 500);
-          }
-        }
-      } catch (e) {
-        // Ignore localStorage errors
-      }
-    }, 1000);
-    
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      clearInterval(localStorageInterval);
-    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, [onComplete]);
   
   // Function to open sign-up/sign-in window
@@ -229,12 +190,25 @@ export function SignupPrompt({
             const baseUrl = env.NEXT_PUBLIC_API_URL || 'https://api.echoray.io';
             const apiUrl = baseUrl.endsWith('/') ? `${baseUrl}auth/check` : `${baseUrl}/auth/check`;
             
+            const headers: Record<string, string> = {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            };
+            
+            // Try to get session token from storage
+            try {
+              const storedToken = sessionStorage.getItem('clerk-session-token');
+              if (storedToken) {
+                headers['Authorization'] = `Bearer ${storedToken}`;
+                logDebug('Using stored session token for API auth check');
+              }
+            } catch (e) {
+              // Ignore storage errors
+            }
+            
             const response = await fetch(apiUrl, {
               method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
+              headers,
               credentials: 'include',
             });
             
@@ -317,10 +291,21 @@ export function SignupPrompt({
                 
                 if (authData?.userId) {
                   logDebug(`Using userId from localStorage: ${authData.userId}`);
+                  
+                  // Store session token if available
+                  if (authData.sessionToken) {
+                    try {
+                      sessionStorage.setItem('clerk-session-token', authData.sessionToken);
+                      logDebug('Stored session token from localStorage data');
+                    } catch (e) {
+                      logDebug('Could not store session token in sessionStorage');
+                    }
+                  }
+                  
                   onComplete(authData.userId);
                 } else {
                   logDebug('No userId in localStorage data, attempting to fetch from API');
-                  await fetchCurrentUser();
+                  await fetchCurrentUser(authData.sessionToken);
                 }
                 
                 clearInterval(checkInterval);
