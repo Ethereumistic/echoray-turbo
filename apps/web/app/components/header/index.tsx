@@ -11,9 +11,10 @@ import {
   NavigationMenuTrigger,
 } from '@repo/design-system/components/ui/navigation-menu';
 import { env } from '@repo/env';
-import { Menu, MoveRight, X } from 'lucide-react';
+import { Menu, MoveRight, X, LogOut, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useAuth, useClerk } from '@clerk/nextjs';
 
 import Image from 'next/image';
 import Logo from './logo1.svg';
@@ -60,6 +61,28 @@ export const Header = () => {
   ];
 
   const [isOpen, setOpen] = useState(false);
+  const { user } = useAuth();
+  const { signOut } = useClerk();
+
+  // Handle sign out with proper cleanup
+  const handleSignOut = async () => {
+    try {
+      // Clear any stored session tokens
+      sessionStorage.removeItem('clerk-session-token');
+      localStorage.removeItem('echoray-auth-data');
+      
+      // Sign out from Clerk
+      await signOut();
+      
+      // Redirect to home page to ensure clean state
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Fallback: still redirect to home
+      window.location.href = '/';
+    }
+  };
+
   return (
     <header className="sticky top-0 left-0 z-40 w-full border-b bg-background">
       <div className="container relative mx-auto flex min-h-20 flex-row items-center gap-4 lg:grid lg:grid-cols-3">
@@ -136,17 +159,43 @@ export const Header = () => {
           </Link>
         </div>
         <div className="flex w-full justify-end gap-4">
-          <Button variant="ghost" className="hidden md:inline" asChild>
-            <Link href="/contact">Contact us</Link>
-          </Button>
-          <div className="hidden border-r md:inline" />
-          <ModeToggle />
-          <Button variant="outline" asChild>
-            <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>Sign in</Link>
-          </Button>
-          <Button variant="default" asChild>
-            <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>Get started</Link>
-          </Button>
+          {user ? (
+            <>
+              <Button variant="ghost" className="hidden md:inline" asChild>
+                <Link href="/contact">Contact us</Link>
+              </Button>
+              <div className="hidden border-r md:inline" />
+              <ModeToggle />
+              <Button 
+                variant="outline" 
+                onClick={handleSignOut}
+                className="gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </Button>
+              <Button variant="default" asChild>
+                <Link href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'} className="gap-2">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" className="hidden md:inline" asChild>
+                <Link href="/contact">Contact us</Link>
+              </Button>
+              <div className="hidden border-r md:inline" />
+              <ModeToggle />
+              <Button variant="outline" asChild>
+                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>Sign in</Link>
+              </Button>
+              <Button variant="default" asChild>
+                <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>Get started</Link>
+              </Button>
+            </>
+          )}
         </div>
         <div className="flex w-12 shrink items-end justify-end lg:hidden">
           <Button variant="ghost" onClick={() => setOpen(!isOpen)}>
@@ -191,6 +240,61 @@ export const Header = () => {
                   </div>
                 </div>
               ))}
+              
+              {/* Mobile Auth Buttons */}
+              <div className="flex flex-col gap-4 border-t pt-4">
+                <Link
+                  href="/contact"
+                  className="flex items-center justify-between"
+                >
+                  <span className="text-lg">Contact us</span>
+                  <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                </Link>
+                
+                {user ? (
+                  // Signed in user mobile buttons
+                  <>
+                    <Link
+                      href={env.NEXT_PUBLIC_APP_URL || 'https://app.echoray.io'}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-lg flex items-center gap-2">
+                        <LayoutDashboard className="h-4 w-4" />
+                        Dashboard
+                      </span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center justify-between text-left"
+                    >
+                      <span className="text-lg flex items-center gap-2">
+                        <LogOut className="h-4 w-4" />
+                        Sign out
+                      </span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </button>
+                  </>
+                ) : (
+                  // Not signed in user mobile buttons
+                  <>
+                    <Link
+                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-lg">Sign in</span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </Link>
+                    <Link
+                      href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-lg">Get started</span>
+                      <MoveRight className="h-4 w-4 stroke-1 text-muted-foreground" />
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
