@@ -18,7 +18,7 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Calendar, Target, Zap, Users, Clock, DollarSign, MessageSquare, Globe } from 'lucide-react';
 
 type PageProps = {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export default async function WebsitesPlaygroundPage({ searchParams }: PageProps) {
@@ -28,8 +28,11 @@ export default async function WebsitesPlaygroundPage({ searchParams }: PageProps
     redirect('/sign-in');
   }
 
+  // Await search params since they're now a Promise in Next.js 15
+  const resolvedSearchParams = await searchParams;
+
   // Get page from search params
-  const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page) : 1;
+  const page = typeof resolvedSearchParams.page === 'string' ? parseInt(resolvedSearchParams.page) : 1;
   const pageSize = 1; // Show one survey per page
 
   // Fetch user's survey responses filtered by websites
