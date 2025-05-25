@@ -11,8 +11,8 @@ import { Separator } from '@repo/design-system/components/ui/separator';
 import { SidebarTrigger } from '@repo/design-system/components/ui/sidebar';
 import type { Metadata } from 'next';
 
-const title = 'Acme Inc';
-const description = 'My application.';
+const title = 'Echoray - Dashboard';
+const description = 'Echoray is a platform for creating and managing your projects.';
 
 export const metadata: Metadata = {
   title,

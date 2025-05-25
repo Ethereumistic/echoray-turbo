@@ -30,10 +30,12 @@ model User {
 }
 
 model SurveyResponse {
-  id             String   @id @default(cuid())
-  user           User?    @relation(fields: [userId], references: [id])
-  userId         String
-  surveyType     String[] // ["websites", "intelligence", "video"]
+  id         String   @id @default(cuid())
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     String
+  surveyType String[] // ["websites", "intelligence", "video"]
+
+  // Generic fields applicable to all survey types
   projectPurpose String?
   features       String[]
   priorities     String[]
@@ -42,8 +44,25 @@ model SurveyResponse {
   timeline       String?
   budget         String?
   additionalInfo String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+
+  // Website-specific fields
+  websiteType String? // "e-commerce", "portfolio", "blog", "corporate", etc.
+  designStyle String? // "modern", "minimalist", "corporate", "creative", etc.
+  platforms   String[] // ["web", "mobile", "responsive"]
+
+  // Intelligence/AI-specific fields
+  aiUseCase    String? // "automation", "analysis", "chatbot", "recommendation", etc.
+  dataTypes    String[] // ["text", "images", "video", "audio", "structured"]
+  integrations String[] // ["api", "database", "crm", "analytics"]
+
+  // Video-specific fields
+  videoType     String? // "promotional", "educational", "entertainment", "documentary", etc.
+  videoDuration String? // "short-form", "medium-form", "long-form"
+  videoStyle    String? // "animated", "live-action", "motion-graphics", "mixed"
+  deliverables  String[] // ["script", "storyboard", "editing", "effects", "voiceover"]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }

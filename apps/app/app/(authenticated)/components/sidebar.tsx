@@ -34,6 +34,7 @@ import {
 } from '@repo/design-system/components/ui/sidebar';
 import { cn } from '@repo/design-system/lib/utils';
 import {
+  ArrowLeftIcon,
   BookOpenIcon,
   BotIcon,
   ChevronRightIcon,
@@ -48,6 +49,7 @@ import {
   ShareIcon,
   SquareTerminalIcon,
   Trash2Icon,
+  Wifi,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -69,16 +71,16 @@ const data = {
       isActive: true,
       items: [
         {
-          title: 'History',
-          url: '#',
+          title: 'Websites',
+          url: '/playground/websites',
         },
         {
-          title: 'Starred',
-          url: '#',
+          title: 'Intelligence',
+          url: '/playground/intelligence',
         },
         {
-          title: 'Settings',
-          url: '#',
+          title: 'Videos',
+          url: '/playground/videos',
         },
       ],
     },
@@ -158,6 +160,11 @@ const data = {
       title: 'Feedback',
       url: '#',
       icon: SendIcon,
+    },
+    {
+      title: 'Back',
+      url: 'https://echoray.io',
+      icon: ArrowLeftIcon,
     },
   ],
   projects: [
