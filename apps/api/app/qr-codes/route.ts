@@ -1,6 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { database } from '@repo/database';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 const QrCodeSchema = z.object({
@@ -14,7 +14,7 @@ const QrCodeSchema = z.object({
   userId: z.string(),
 });
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { userId } = await auth();
     
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { userId } = await auth();
     

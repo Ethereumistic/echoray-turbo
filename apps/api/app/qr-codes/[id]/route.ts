@@ -1,16 +1,10 @@
 import { auth } from '@clerk/nextjs/server';
 import { database } from '@repo/database';
-import { NextRequest, NextResponse } from 'next/server';
-
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
+import { NextResponse } from 'next/server';
 
 export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -19,7 +13,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    // Await params since they're now a Promise in Next.js 15
+    const { id } = await params;
 
     // First check if the QR code exists and belongs to the user
     const existingQrCode = await database.qrCode.findFirst({
