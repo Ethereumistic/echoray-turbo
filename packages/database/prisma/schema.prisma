@@ -25,6 +25,7 @@ model User {
   email           String           @unique
   name            String?
   surveyResponses SurveyResponse[]
+  qrCodes         QrCode[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 }
@@ -60,6 +61,28 @@ model SurveyResponse {
   videoDuration String? // "short-form", "medium-form", "long-form"
   videoStyle    String? // "animated", "live-action", "motion-graphics", "mixed"
   deliverables  String[] // ["script", "storyboard", "editing", "effects", "voiceover"]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model QrCode {
+  id     String  @id @default(cuid())
+  user   User?   @relation(fields: [userId], references: [id])
+  userId String
+  title  String? // Optional title for the QR code
+  data   String // The actual data encoded in the QR code (URL, text, etc.)
+  qrType String  @default("text") // "url", "text", "email", "phone", "wifi", etc.
+
+  // QR Code settings
+  size       Int    @default(200) // Size in pixels
+  errorLevel String @default("M") // L, M, Q, H
+
+  // Optional styling (stored as JSON string)
+  foregroundColor String? @default("#000000")
+  backgroundColor String? @default("#ffffff")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

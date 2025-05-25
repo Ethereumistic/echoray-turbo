@@ -85,13 +85,13 @@ const data = {
       ],
     },
     {
-      title: 'Models',
+      title: 'Tools',
       url: '#',
       icon: BotIcon,
       items: [
         {
-          title: 'Genesis',
-          url: '#',
+          title: 'QR Generator',
+          url: '/tools/qr-generator',
         },
         {
           title: 'Explorer',
