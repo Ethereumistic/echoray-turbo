@@ -1,7 +1,7 @@
-import { auth } from '@clerk/nextjs/server';
 import { database } from '@repo/database';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { authenticateRequest } from '../utils/auth';
 
 const QrCodeSchema = z.object({
   title: z.string().optional(),
@@ -16,7 +16,7 @@ const QrCodeSchema = z.object({
 
 export async function GET(request: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await authenticateRequest(request);
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await authenticateRequest(request);
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

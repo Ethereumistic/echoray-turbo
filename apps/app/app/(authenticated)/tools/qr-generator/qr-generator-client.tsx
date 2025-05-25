@@ -43,7 +43,7 @@ interface SavedQrCode extends QrCodeData {
 }
 
 export function QrGeneratorClient() {
-  const { userId } = useAuth();
+  const { userId, getToken } = useAuth();
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -61,6 +61,15 @@ export function QrGeneratorClient() {
   const [savedQrCodes, setSavedQrCodes] = useState<SavedQrCode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Helper function to get authenticated headers
+  const getAuthHeaders = async () => {
+    const token = await getToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    };
+  };
 
   // Generate QR code
   const generateQrCode = useCallback(async () => {
@@ -116,11 +125,10 @@ export function QrGeneratorClient() {
 
     setIsSaving(true);
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/qr-codes`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           ...qrData,
@@ -180,7 +188,9 @@ export function QrGeneratorClient() {
 
       setIsLoading(true);
       try {
+        const headers = await getAuthHeaders();
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/qr-codes?userId=${userId}`, {
+          headers,
           credentials: 'include',
         });
         if (response.ok) {
@@ -202,8 +212,10 @@ export function QrGeneratorClient() {
   // Delete saved QR code
   const deleteQrCode = async (id: string) => {
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/qr-codes/${id}`, {
         method: 'DELETE',
+        headers,
         credentials: 'include',
       });
 
