@@ -49,7 +49,6 @@ import {
   ShareIcon,
   SquareTerminalIcon,
   Trash2Icon,
-  Wifi,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -58,11 +57,6 @@ type GlobalSidebarProperties = {
 };
 
 const data = {
-  user: {
-    name: 'shadcn',
-    email: 'm@example.com',
-    avatar: '/avatars/shadcn.jpg',
-  },
   navMain: [
     {
       title: 'Playground',
@@ -340,4 +334,4 @@ export const GlobalSidebar = ({ children }: GlobalSidebarProperties) => {
       <SidebarInset>{children}</SidebarInset>
     </>
   );
-};
+}; 

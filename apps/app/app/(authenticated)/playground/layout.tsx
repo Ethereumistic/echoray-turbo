@@ -1,4 +1,4 @@
-import { database } from '@repo/database';
+import type { ReactNode } from 'react';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -9,19 +9,12 @@ import {
 } from '@repo/design-system/components/ui/breadcrumb';
 import { Separator } from '@repo/design-system/components/ui/separator';
 import { SidebarTrigger } from '@repo/design-system/components/ui/sidebar';
-import type { Metadata } from 'next';
 
-const title = 'Echoray - Dashboard';
-const description = 'Echoray is a platform for creating and managing your projects.';
+interface PlaygroundLayoutProps {
+  children: ReactNode;
+}
 
-export const metadata: Metadata = {
-  title,
-  description,
-};
-
-const App = async () => {
-  const pages = await database.page.findMany();
-
+export default function PlaygroundLayout({ children }: PlaygroundLayoutProps) {
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
@@ -31,30 +24,25 @@ const App = async () => {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">
-                  Building Your Application
+                <BreadcrumbLink href="/">
+                  Dashboard
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Data Fetching</BreadcrumbPage>
+                <BreadcrumbLink href="/playground">Playground</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Websites</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-          {pages.map((page) => (
-            <div key={page.id} className="aspect-video rounded-xl bg-muted/50">
-              {page.name}
-            </div>
-          ))}
-        </div>
-        <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" />
+        {children}
       </div>
     </>
   );
-};
-
-export default App; 
+} 
