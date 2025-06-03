@@ -295,7 +295,7 @@ export const Header = () => {
       
       {/* Debug info - only show in development */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="bg-yellow-100 dark:bg-yellow-900 p-2 text-xs border-b">
+        <div className="bg-blue-900 dark:bg-blue-600 p-2 text-xs border-b">
           <strong>Auth Debug:</strong> {loading ? 'Loading...' : authenticated ? `✅ Authenticated as ${user?.firstName || 'User'}` : '❌ Not authenticated'} 
           {error && <span className="text-red-600 ml-2">Error: {error}</span>}
           {debug && <span className="ml-2">({debug})</span>}
