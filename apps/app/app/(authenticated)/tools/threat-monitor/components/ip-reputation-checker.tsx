@@ -5,7 +5,7 @@ import { Button } from '@repo/design-system/components/ui/button';
 import { Input } from '@repo/design-system/components/ui/input';
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Separator } from '@repo/design-system/components/ui/separator';
-import { LoaderIcon, AlertTriangleIcon, CheckCircleIcon, MapPinIcon, BuildingIcon } from 'lucide-react';
+import { LoaderIcon, AlertTriangleIcon, CheckCircleIcon, MapPinIcon, BuildingIcon, GlobeIcon, ServerIcon } from 'lucide-react';
 import { threatMonitorFetch } from '../utils/api';
 
 interface IpReputationData {
@@ -19,18 +19,44 @@ interface IpReputationData {
   abuseConfidence: number;
 }
 
+interface PublicIpData {
+  ip: string;
+  ipType: string;
+  geolocation?: {
+    city: string;
+    region: string;
+    country: string;
+    postal: string;
+    timezone: string;
+    coordinates?: { latitude: number; longitude: number };
+  };
+  network?: {
+    asn: string;
+    asnName: string;
+    isp: string;
+    hostname: string;
+  };
+  privacy?: {
+    isHosting: boolean;
+  };
+  source?: string;
+  note?: string;
+}
+
 export function IpReputationChecker() {
   const [ip, setIp] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IpReputationData | null>(null);
+  const [publicIpData, setPublicIpData] = useState<PublicIpData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const checkMyIp = async () => {
     setLoading(true);
     setError(null);
     setResult(null); // Clear any previous results
+    setPublicIpData(null);
     try {
-      // Get user's IP first
+      // Get user's comprehensive IP data
       const ipResponse = await threatMonitorFetch('/my-ip');
       
       if (!ipResponse.ok) {
@@ -45,6 +71,7 @@ export function IpReputationChecker() {
       
       const userIp = ipData.ip.trim();
       setIp(userIp);
+      setPublicIpData(ipData);
       
       // Don't automatically run reputation check - just show the IP
       // User can manually click "Check IP" if they want to check reputation
@@ -147,20 +174,127 @@ export function IpReputationChecker() {
       )}
 
       {/* IP Display (when Check My IP is used but no reputation check yet) */}
-      {ip && !result && !error && (
-        <div className="space-y-3">
+      {ip && !result && !error && publicIpData && (
+        <div className="space-y-4">
           <Separator />
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/20 dark:border-blue-800">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircleIcon className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Your IP Address</span>
+          
+          {/* Main IP Card */}
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/20 dark:border-blue-800">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircleIcon className="h-5 w-5 text-blue-600" />
+              <span className="text-lg font-semibold text-blue-800 dark:text-blue-300">Your Public IP Information</span>
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="font-mono text-lg text-blue-900 dark:text-blue-100">{ip}</div>
-              <div className="text-blue-700 dark:text-blue-300">
-                Click "Check IP" above to analyze this IP's reputation
+            
+            {/* IP Address */}
+            <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg border mb-4">
+              <div className="text-2xl font-mono font-bold text-blue-900 dark:text-blue-100">{publicIpData.ip}</div>
+              <div className="text-sm text-blue-600 dark:text-blue-400 mt-1">{publicIpData.ipType} Address</div>
+            </div>
+
+            {/* Geolocation Information */}
+            {publicIpData.geolocation && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <MapPinIcon className="h-4 w-4" />
+                    Location
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">City:</span>
+                      <span className="font-medium">{publicIpData.geolocation.city || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Region:</span>
+                      <span className="font-medium">{publicIpData.geolocation.region || 'Unknown'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Country:</span>
+                      <span className="font-medium">{publicIpData.geolocation.country || 'Unknown'}</span>
+                    </div>
+                    {publicIpData.geolocation.postal && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Postal:</span>
+                        <span className="font-medium">{publicIpData.geolocation.postal}</span>
+                      </div>
+                    )}
+                    {publicIpData.geolocation.timezone && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Timezone:</span>
+                        <span className="font-medium">{publicIpData.geolocation.timezone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Network Information */}
+                {publicIpData.network && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <ServerIcon className="h-4 w-4" />
+                      Network & ISP
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      {publicIpData.network.asn && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">ASN:</span>
+                          <span className="font-medium">{publicIpData.network.asn}</span>
+                        </div>
+                      )}
+                      {publicIpData.network.isp && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">ISP:</span>
+                          <span className="font-medium text-right max-w-64 text-nowrap" title={publicIpData.network.isp}>
+                            {publicIpData.network.isp}
+                          </span>
+                        </div>
+                      )}
+                      {publicIpData.network.hostname && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Hostname:</span>
+                          <span className="font-medium text-right max-w-64 text-nowrap font-mono text-xs" title={publicIpData.network.hostname}>
+                            {publicIpData.network.hostname}
+                          </span>
+                        </div>
+                      )}
+                      {publicIpData.privacy?.isHosting !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Hosting:</span>
+                          <Badge variant={publicIpData.privacy.isHosting ? "outline" : "secondary"} className="text-xs">
+                            {publicIpData.privacy.isHosting ? 'Yes' : 'No'}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* Action Button */}
+            <div className="text-center pt-3 border-t">
+              <div className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                Want to check this IP's security reputation and threat status?
+              </div>
+              <Button 
+                onClick={() => checkIpReputation()}
+                variant="outline"
+                className="border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900"
+              >
+                <AlertTriangleIcon className="h-4 w-4 mr-2" />
+                Analyze IP Security & Reputation
+              </Button>
             </div>
+
+            {/* Data Source */}
+            {publicIpData.source && (
+              <div className="mt-3 pt-3 border-t text-xs text-gray-500 dark:text-gray-400 text-center">
+                Data provided by {publicIpData.source}
+                {publicIpData.note && <span className="block mt-1">{publicIpData.note}</span>}
+              </div>
+            )}
           </div>
         </div>
       )}
