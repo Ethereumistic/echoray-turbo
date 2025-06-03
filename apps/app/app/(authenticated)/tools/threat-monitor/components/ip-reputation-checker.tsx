@@ -301,48 +301,6 @@ export function IpReputationChecker() {
                 Geolocation (Coming Soon)
               </Button>
             </div>
-
-            {/* Debug Information */}
-            {publicIpData.debug && (
-              <div className="mt-4 pt-3 border-t">
-                <details className="text-xs text-gray-500 dark:text-gray-400">
-                  <summary className="cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 mb-2">
-                    🔍 Debug Information (Click to expand)
-                  </summary>
-                  <div className="space-y-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg font-mono">
-                    <div>
-                      <strong>Detected Client IP:</strong> {publicIpData.debug.detectedClientIP}
-                    </div>
-                    <div>
-                      <strong>Request Headers:</strong>
-                    </div>
-                    <div className="pl-4 space-y-1">
-                      {Object.entries(publicIpData.debug.requestHeaders).map(([header, value]) => (
-                        <div key={header} className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">{header}:</span>
-                          <span className={value ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                            {value || 'null'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    {publicIpData.fallback && (
-                      <div className="text-yellow-600 dark:text-yellow-400">
-                        ⚠️ Using fallback IP detection
-                      </div>
-                    )}
-                  </div>
-                </details>
-              </div>
-            )}
-
-            {/* Data Source Footer */}
-            {publicIpData.source && (
-              <div className="mt-3 pt-3 border-t text-xs text-gray-500 dark:text-gray-400 text-center">
-                Data provided by {publicIpData.source}
-                {publicIpData.note && <span className="block mt-1">{publicIpData.note}</span>}
-              </div>
-            )}
           </div>
         </div>
       )}

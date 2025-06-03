@@ -236,24 +236,17 @@ export function DomainIntelDashboard() {
                   <span className="text-sm">{result.whois.registrar}</span>
                 </div>
                 
+                {/* Single Row for All Date Information */}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" />
-                    Registration Date
+                    Registration & Expiration
                   </span>
-                  <span className="text-sm">{formatDate(result.whois.registrationDate)}</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground flex items-center gap-1">
-                    <CalendarIcon className="h-3 w-3" />
-                    Expiration Date
-                  </span>
-                  <div className="text-right">
-                    <div className="text-sm">{formatDate(result.whois.expirationDate)}</div>
-                    <div className={`text-xs ${getDaysUntilExpiry(result.whois.expirationDate) < 30 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                      {getDaysUntilExpiry(result.whois.expirationDate)} days remaining
-                    </div>
+                  <div className="text-right text-sm">
+                    <span>{formatDate(result.whois.registrationDate)} → {formatDate(result.whois.expirationDate)}</span>
+                    <span className={`ml-2 text-xs ${getDaysUntilExpiry(result.whois.expirationDate) < 30 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                      ({getDaysUntilExpiry(result.whois.expirationDate)} days left)
+                    </span>
                   </div>
                 </div>
 

@@ -59,7 +59,7 @@ export default clerkMiddleware((auth, req: any) => {
       status: 204,
       headers: {
         'Access-Control-Allow-Origin': corsOrigin,
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-clerk-auth-token',
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Max-Age': '86400', // 24 hours

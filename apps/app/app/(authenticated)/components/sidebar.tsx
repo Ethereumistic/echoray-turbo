@@ -51,6 +51,8 @@ import {
   Trash2Icon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { CompanySwitcher } from './company-switcher';
+import { InvitationBell } from './invitation-bell';
 
 type GlobalSidebarProperties = {
   readonly children: ReactNode;
@@ -189,16 +191,24 @@ export const GlobalSidebar = ({ children }: GlobalSidebarProperties) => {
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
-              <div
-                className={cn(
-                  'h-[36px] overflow-hidden transition-all [&>div]:w-full',
-                  sidebar.open ? '' : '-mx-1'
-                )}
-              >
-                <OrganizationSwitcher
-                  hidePersonal
-                  afterSelectOrganizationUrl="/"
-                />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="flex-1">
+                    <CompanySwitcher />
+                  </div>
+                  <InvitationBell />
+                </div>
+                <div
+                  className={cn(
+                    'h-[36px] overflow-hidden transition-all [&>div]:w-full',
+                    sidebar.open ? '' : '-mx-1'
+                  )}
+                >
+                  <OrganizationSwitcher
+                    hidePersonal
+                    afterSelectOrganizationUrl="/"
+                  />
+                </div>
               </div>
             </SidebarMenuItem>
           </SidebarMenu>

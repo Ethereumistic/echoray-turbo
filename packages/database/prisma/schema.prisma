@@ -29,6 +29,203 @@ model User {
   threatMonitorUsage ThreatMonitorUsage[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
+
+  // Company relationships
+  ownedCompanies        Company[]          @relation("CompanyOwner")
+  companyMemberships    CompanyMember[]
+  departmentMemberships DepartmentMember[]
+  userRoles             UserRole[]
+
+  // Invitation relationships
+  sentInvitations     CompanyInvitation[] @relation("InvitationsSent")
+  receivedInvitations CompanyInvitation[] @relation("InvitationsReceived")
+}
+
+model Company {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  // Owner relationship
+  owner   User   @relation("CompanyOwner", fields: [ownerId], references: [id])
+  ownerId String
+
+  // Company settings
+  settings  Json?    @default("{}")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  members     CompanyMember[]
+  departments Department[]
+  roles       Role[]
+  invitations CompanyInvitation[]
+
+  @@index([ownerId])
+  @@map("companies")
+}
+
+model CompanyMember {
+  id String @id @default(cuid())
+
+  // Relations
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  // Member status
+  status   MemberStatus @default(ACTIVE)
+  joinedAt DateTime     @default(now())
+  leftAt   DateTime?
+
+  // Permissions at company level
+  isAdmin Boolean @default(false)
+
+  @@unique([companyId, userId])
+  @@index([companyId])
+  @@index([userId])
+  @@map("company_members")
+}
+
+model Department {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  // Company relation
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+
+  // Department hierarchy (optional - for nested departments)
+  parent   Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parentId String?
+  children Department[] @relation("DepartmentHierarchy")
+
+  // Department settings
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  members DepartmentMember[]
+  roles   Role[]
+
+  @@unique([companyId, name]) // Department names must be unique within a company
+  @@index([companyId])
+  @@index([parentId])
+  @@map("departments")
+}
+
+model DepartmentMember {
+  id String @id @default(cuid())
+
+  // Relations
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  departmentId String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+
+  // Member status
+  status   MemberStatus @default(ACTIVE)
+  joinedAt DateTime     @default(now())
+  leftAt   DateTime?
+
+  // Department-specific permissions
+  isManager Boolean @default(false)
+
+  @@unique([departmentId, userId])
+  @@index([departmentId])
+  @@index([userId])
+  @@map("department_members")
+}
+
+model Role {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  // Scope - roles can be company-wide or department-specific
+  company      Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId    String
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  departmentId String?
+
+  // Role settings
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  permissions RolePermission[]
+  userRoles   UserRole[]
+
+  @@unique([companyId, name]) // Role names must be unique within a company
+  @@index([companyId])
+  @@index([departmentId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  name        String  @unique // e.g., "time_tracker.create", "reports.view", "users.manage"
+  description String?
+  category    String // e.g., "time_tracker", "reports", "admin"
+
+  createdAt DateTime @default(now())
+
+  // Relationships
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id String @id @default(cuid())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId       String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId String
+
+  // Permission settings (for future flexibility)
+  canCreate Boolean @default(false)
+  canRead   Boolean @default(false)
+  canUpdate Boolean @default(false)
+  canDelete Boolean @default(false)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id String @id @default(cuid())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId String
+
+  // Role assignment details
+  assignedAt DateTime  @default(now())
+  assignedBy String? // userId of who assigned this role
+  expiresAt  DateTime? // for temporary roles
+  isActive   Boolean   @default(true)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  SUSPENDED
 }
 
 model SurveyResponse {
@@ -102,4 +299,52 @@ model ThreatMonitorUsage {
   @@index([userId])
   @@index([userId, endpoint])
   @@index([createdAt])
+}
+
+model CompanyInvitation {
+  id String @id @default(cuid())
+
+  // Company and inviter
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   String
+  invitedBy   User    @relation("InvitationsSent", fields: [invitedById], references: [id])
+  invitedById String
+
+  // Invitation details
+  email   String
+  message String?
+  role    InvitationRole @default(MEMBER)
+  isAdmin Boolean        @default(false)
+
+  // Status and timing
+  status      InvitationStatus @default(PENDING)
+  invitedAt   DateTime         @default(now())
+  expiresAt   DateTime // Invitations expire after X days
+  respondedAt DateTime?
+
+  // If accepted, link to the user
+  acceptedBy   User?   @relation("InvitationsReceived", fields: [acceptedById], references: [id])
+  acceptedById String?
+
+  @@unique([companyId, email]) // One pending invitation per company per email
+  @@index([companyId])
+  @@index([email])
+  @@index([invitedById])
+  @@index([acceptedById])
+  @@index([status])
+  @@map("company_invitations")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+enum InvitationRole {
+  MEMBER
+  ADMIN
+  MANAGER
 }
