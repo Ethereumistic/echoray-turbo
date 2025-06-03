@@ -5,6 +5,7 @@ const allowedOrigins = [
   // Development URLs
   'http://localhost:3000',
   'http://localhost:3001',
+  'http://localhost:3002',
   
   // Production URLs
   'https://echoray.io',

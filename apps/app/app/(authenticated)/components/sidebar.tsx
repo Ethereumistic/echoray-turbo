@@ -80,7 +80,7 @@ const data = {
     },
     {
       title: 'Tools',
-      url: '#',
+      url: '/tools',
       icon: BotIcon,
       items: [
         {

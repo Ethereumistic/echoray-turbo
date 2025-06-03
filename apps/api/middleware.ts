@@ -7,8 +7,21 @@ const isPublicRoute = createRouteMatcher([
   "/survey",
   "/users/signup",
   "/users/current",
-  "/auth/check"
+  "/auth/check",
+  "/threat-monitor/my-ip" // Allow getting user's IP without authentication
 ]);
+
+// Check if a route should be public in development
+const isDevPublicRoute = (pathname: string) => {
+  if (process.env.NODE_ENV === 'development') {
+    // In development, allow all threat-monitor endpoints to bypass Clerk middleware
+    // since we handle authentication manually in the endpoints
+    if (pathname.startsWith('/threat-monitor/')) {
+      return true;
+    }
+  }
+  return false;
+};
 
 // Helper function to get appropriate CORS origin
 function getCorsOrigin(request: any) {
@@ -37,9 +50,9 @@ function getCorsOrigin(request: any) {
 }
 
 // Use clerkMiddleware instead of authMiddleware as per Clerk docs
-export default clerkMiddleware((auth, req) => {
-  // Type guard to check if req has method property
-  if (req && typeof req === 'object' && 'method' in req && req.method === 'OPTIONS') {
+export default clerkMiddleware((auth, req: any) => {
+  // Handle OPTIONS requests
+  if (req && req.method === 'OPTIONS') {
     const corsOrigin = getCorsOrigin(req);
     
     return new NextResponse(null, {
@@ -56,7 +69,7 @@ export default clerkMiddleware((auth, req) => {
   }
   
   // For public routes, allow access
-  if (isPublicRoute(req)) {
+  if (isPublicRoute(req) || isDevPublicRoute(req?.nextUrl?.pathname || '')) {
     const response = NextResponse.next();
     
     // Add CORS headers
