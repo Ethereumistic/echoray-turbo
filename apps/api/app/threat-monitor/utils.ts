@@ -175,19 +175,87 @@ export async function getIPGeolocation(ip: string): Promise<any> {
 // Get user's real IP address
 export function getRealIP(request: Request): string {
   // Try various headers that might contain the real IP
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  const realIP = request.headers.get('x-real-ip');
-  const cfConnectingIP = request.headers.get('cf-connecting-ip');
+  // Order matters - more trusted headers first
   
-  if (cfConnectingIP) return cfConnectingIP;
-  if (realIP) return realIP;
-  if (forwardedFor) {
-    // x-forwarded-for can contain multiple IPs, get the first one
-    return forwardedFor.split(',')[0].trim();
+  // Cloudflare
+  const cfConnectingIP = request.headers.get('cf-connecting-ip');
+  if (cfConnectingIP && isValidIP(cfConnectingIP)) {
+    console.log('Using CF-Connecting-IP:', cfConnectingIP);
+    return cfConnectingIP;
   }
   
-  // Fallback to a default IP for development
+  // Standard proxy headers
+  const xRealIP = request.headers.get('x-real-ip');
+  if (xRealIP && isValidIP(xRealIP)) {
+    console.log('Using X-Real-IP:', xRealIP);
+    return xRealIP;
+  }
+  
+  // X-Forwarded-For (can contain multiple IPs, get the first one)
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    // x-forwarded-for can contain multiple IPs: "client, proxy1, proxy2"
+    const firstIP = forwardedFor.split(',')[0].trim();
+    if (isValidIP(firstIP)) {
+      console.log('Using X-Forwarded-For (first IP):', firstIP);
+      return firstIP;
+    }
+  }
+  
+  // Other common headers
+  const xClientIP = request.headers.get('x-client-ip');
+  if (xClientIP && isValidIP(xClientIP)) {
+    console.log('Using X-Client-IP:', xClientIP);
+    return xClientIP;
+  }
+  
+  const xForwarded = request.headers.get('x-forwarded');
+  if (xForwarded && isValidIP(xForwarded)) {
+    console.log('Using X-Forwarded:', xForwarded);
+    return xForwarded;
+  }
+  
+  const xClusterClientIP = request.headers.get('x-cluster-client-ip');
+  if (xClusterClientIP && isValidIP(xClusterClientIP)) {
+    console.log('Using X-Cluster-Client-IP:', xClusterClientIP);
+    return xClusterClientIP;
+  }
+  
+  console.log('No valid client IP found in headers, using fallback');
+  
+  // Fallback for different environments
+  if (process.env.NODE_ENV === 'development') {
+    // In development, return a public IP for testing
+    return '8.8.8.8';
+  }
+  
+  // Production fallback
   return '127.0.0.1';
+}
+
+// Helper function to validate IP addresses
+function isValidIP(ip: string): boolean {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    return false;
+  }
+  
+  // IPv4 validation
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (ipv4Regex.test(ip)) {
+    const parts = ip.split('.');
+    return parts.every(part => {
+      const num = parseInt(part, 10);
+      return num >= 0 && num <= 255;
+    });
+  }
+  
+  // IPv6 validation (basic)
+  const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+  if (ipv6Regex.test(ip)) {
+    return true;
+  }
+  
+  return false;
 }
 
 // DNS lookup utilities

@@ -41,6 +41,11 @@ interface PublicIpData {
   };
   source?: string;
   note?: string;
+  debug?: {
+    detectedClientIP: string;
+    requestHeaders: Record<string, string | null>;
+  };
+  fallback?: boolean;
 }
 
 export function IpReputationChecker() {
@@ -179,16 +184,16 @@ export function IpReputationChecker() {
           <Separator />
           
           {/* Main IP Card */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/20 dark:border-blue-800">
+          <div className="p-4 bg-primary/10 border border-primary rounded-lg  ">
             <div className="flex items-center gap-2 mb-3">
-              <CheckCircleIcon className="h-5 w-5 text-blue-600" />
-              <span className="text-lg font-semibold text-blue-800 dark:text-blue-300">Your Public IP Information</span>
+              <CheckCircleIcon className="h-5 w-5 text-primary" />
+              <span className="text-lg font-semibold text-foreground">Your Public IP Information</span>
             </div>
             
             {/* IP Address */}
-            <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg border mb-4">
-              <div className="text-2xl font-mono font-bold text-blue-900 dark:text-blue-100">{publicIpData.ip}</div>
-              <div className="text-sm text-blue-600 dark:text-blue-400 mt-1">{publicIpData.ipType} Address</div>
+            <div className="text-center p-3 bg-background rounded-lg border mb-4">
+              <div className="text-2xl font-mono font-bold text-foreground">{publicIpData.ip}</div>
+              <div className="text-sm text-primary mt-1">{publicIpData.ipType} Address</div>
             </div>
 
             {/* Geolocation Information */}
@@ -275,20 +280,63 @@ export function IpReputationChecker() {
 
             {/* Action Button */}
             <div className="text-center pt-3 border-t">
-              <div className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+              <div className="text-sm text-primary mb-3">
                 Want to check this IP's security reputation and threat status?
               </div>
               <Button 
                 onClick={() => checkIpReputation()}
                 variant="outline"
-                className="border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900"
+                className="border-primary mx-2 text-foreground hover:bg-primary/10"
               >
                 <AlertTriangleIcon className="h-4 w-4 mr-2" />
                 Analyze IP Security & Reputation
               </Button>
+
+              <Button 
+                disabled={true}
+                variant="outline"
+                className="border-primary mx-2 text-foreground "
+              >
+                <GlobeIcon  className="h-4 w-4 mr-2" />
+                Geolocation (Coming Soon)
+              </Button>
             </div>
 
-            {/* Data Source */}
+            {/* Debug Information */}
+            {publicIpData.debug && (
+              <div className="mt-4 pt-3 border-t">
+                <details className="text-xs text-gray-500 dark:text-gray-400">
+                  <summary className="cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 mb-2">
+                    🔍 Debug Information (Click to expand)
+                  </summary>
+                  <div className="space-y-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg font-mono">
+                    <div>
+                      <strong>Detected Client IP:</strong> {publicIpData.debug.detectedClientIP}
+                    </div>
+                    <div>
+                      <strong>Request Headers:</strong>
+                    </div>
+                    <div className="pl-4 space-y-1">
+                      {Object.entries(publicIpData.debug.requestHeaders).map(([header, value]) => (
+                        <div key={header} className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">{header}:</span>
+                          <span className={value ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                            {value || 'null'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {publicIpData.fallback && (
+                      <div className="text-yellow-600 dark:text-yellow-400">
+                        ⚠️ Using fallback IP detection
+                      </div>
+                    )}
+                  </div>
+                </details>
+              </div>
+            )}
+
+            {/* Data Source Footer */}
             {publicIpData.source && (
               <div className="mt-3 pt-3 border-t text-xs text-gray-500 dark:text-gray-400 text-center">
                 Data provided by {publicIpData.source}

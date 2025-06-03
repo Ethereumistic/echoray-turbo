@@ -145,22 +145,7 @@ export default function ThreatMonitorPage() {
       </Tabs>
 
       {/* Info Section */}
-      <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            <ShieldIcon className="h-5 w-5 text-amber-600 mt-0.5" />
-            <div className="space-y-1">
-              <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-                Security Notice
-              </h3>
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                These tools are for legitimate security research and testing purposes only. 
-                Always ensure you have proper authorization before scanning or analyzing external systems.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 } 

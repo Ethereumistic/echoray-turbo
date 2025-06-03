@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { handleOptionsRequest, getOriginFromRequest } from '../../utils/cors';
-import { createSuccessResponse, createErrorResponse } from '../utils';
+import { getRealIP, createSuccessResponse, createErrorResponse } from '../utils';
 
 export const runtime = 'edge';
 
@@ -14,13 +14,19 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     console.log('My IP endpoint called - Origin:', origin);
     
-    // Get comprehensive IP info from IPInfo API
+    // Get the client's real IP address first
+    const clientIP = getRealIP(request);
+    console.log('Detected client IP:', clientIP);
+    
+    // Get comprehensive IP info from IPInfo API for the CLIENT's IP
     const ipInfoToken = process.env.IPINFO_API_TOKEN;
-    let ipInfoUrl = 'https://ipinfo.io/json';
+    let ipInfoUrl = `https://ipinfo.io/${clientIP}/json`;
     
     if (ipInfoToken) {
       ipInfoUrl += `?token=${ipInfoToken}`;
     }
+
+    console.log('Calling IPInfo for client IP:', ipInfoUrl);
 
     const ipInfoResponse = await fetch(ipInfoUrl, {
       headers: {
@@ -34,7 +40,10 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const ipData = await ipInfoResponse.json();
-    console.log('IPInfo response:', ipData);
+    console.log('IPInfo response for client:', ipData);
+
+    // Fallback to detected client IP if IPInfo doesn't return an IP
+    const actualIP = ipData.ip || clientIP;
 
     // Parse coordinates if available
     let coordinates = null;
@@ -45,8 +54,8 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     // Structure the response with comprehensive IP information
     const response = {
-      ip: ipData.ip,
-      ipType: ipData.ip?.includes(':') ? 'IPv6' : 'IPv4',
+      ip: actualIP,
+      ipType: actualIP?.includes(':') ? 'IPv6' : 'IPv4',
       
       // Geolocation
       geolocation: {
@@ -78,21 +87,31 @@ export async function GET(request: Request): Promise<NextResponse> {
       
       timestamp: new Date().toISOString(),
       source: 'IPInfo.io',
-      note: ipInfoToken ? 'Using authenticated IPInfo API' : 'Using free IPInfo API (limited data)'
+      note: ipInfoToken ? 'Using authenticated IPInfo API' : 'Using free IPInfo API (limited data)',
+      debug: {
+        detectedClientIP: clientIP,
+        requestHeaders: {
+          'x-forwarded-for': request.headers.get('x-forwarded-for'),
+          'x-real-ip': request.headers.get('x-real-ip'),
+          'cf-connecting-ip': request.headers.get('cf-connecting-ip')
+        }
+      }
     };
 
     return createSuccessResponse(response, origin);
   } catch (error: any) {
     console.error('My IP endpoint error:', error);
     
-    // Fallback to basic response if IPInfo fails
+    // Fallback to basic client IP if IPInfo fails
+    const fallbackIP = getRealIP(request);
     return createSuccessResponse(
       {
-        ip: '127.0.0.1',
-        ipType: 'IPv4',
+        ip: fallbackIP,
+        ipType: fallbackIP?.includes(':') ? 'IPv6' : 'IPv4',
         error: 'Failed to get comprehensive IP data',
         message: 'Please check your IPInfo API configuration',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        fallback: true
       },
       origin
     );
