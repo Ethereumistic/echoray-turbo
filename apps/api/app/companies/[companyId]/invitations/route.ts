@@ -15,7 +15,7 @@ export async function OPTIONS(request: Request) {
 
 export async function POST(
   request: Request,
-  { params }: { params: { companyId: string } }
+  { params }: { params: Promise<{ companyId: string }> }
 ) {
   try {
     const origin = getOriginFromRequest(request);
@@ -28,7 +28,7 @@ export async function POST(
       return corsErrorResponse("Authentication required", { status: 401, origin });
     }
     
-    const { companyId } = params;
+    const { companyId } = await params;
     const body = await request.json();
     const { email, role = 'MEMBER', isAdmin = false, message } = body;
     

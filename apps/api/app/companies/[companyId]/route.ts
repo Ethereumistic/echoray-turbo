@@ -13,7 +13,7 @@ export async function OPTIONS(request: Request) {
   return handleOptionsRequest(request);
 }
 
-export async function GET(request: Request, { params }: { params: { companyId: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ companyId: string }> }) {
   try {
     const origin = getOriginFromRequest(request);
     
@@ -25,7 +25,7 @@ export async function GET(request: Request, { params }: { params: { companyId: s
       return corsErrorResponse("Authentication required", { status: 401, origin });
     }
     
-    const { companyId } = params;
+    const { companyId } = await params;
     const db = database as any;
     
     // Check if user has access to this company
@@ -110,7 +110,7 @@ export async function GET(request: Request, { params }: { params: { companyId: s
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { companyId: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ companyId: string }> }) {
   try {
     const origin = getOriginFromRequest(request);
     
@@ -122,7 +122,7 @@ export async function PATCH(request: Request, { params }: { params: { companyId:
       return corsErrorResponse("Authentication required", { status: 401, origin });
     }
     
-    const { companyId } = params;
+    const { companyId } = await params;
     const body = await request.json();
     const { name, description, settings } = body;
     
@@ -215,7 +215,7 @@ export async function PATCH(request: Request, { params }: { params: { companyId:
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { companyId: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ companyId: string }> }) {
   try {
     const origin = getOriginFromRequest(request);
     
@@ -227,7 +227,7 @@ export async function DELETE(request: Request, { params }: { params: { companyId
       return corsErrorResponse("Authentication required", { status: 401, origin });
     }
     
-    const { companyId } = params;
+    const { companyId } = await params;
     const db = database as any;
     
     // Check if user is the owner of this company

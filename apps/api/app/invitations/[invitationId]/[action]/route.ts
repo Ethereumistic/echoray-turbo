@@ -15,7 +15,7 @@ export async function OPTIONS(request: Request) {
 
 export async function POST(
   request: Request,
-  { params }: { params: { invitationId: string; action: string } }
+  { params }: { params: Promise<{ invitationId: string; action: string }> }
 ) {
   try {
     const origin = getOriginFromRequest(request);
@@ -28,7 +28,7 @@ export async function POST(
       return corsErrorResponse("Authentication required", { status: 401, origin });
     }
     
-    const { invitationId, action } = params;
+    const { invitationId, action } = await params;
     
     // Validate action
     if (!['accept', 'decline'].includes(action)) {
