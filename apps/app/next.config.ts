@@ -4,6 +4,11 @@ import type { NextConfig } from 'next';
 
 let nextConfig: NextConfig = { ...config };
 
+  nextConfig.images = {
+    domains: ['cdn.jsdelivr.net'], // Allow the specified hostname
+  };
+
+
 if (env.VERCEL) {
   nextConfig = withSentry(nextConfig);
 }

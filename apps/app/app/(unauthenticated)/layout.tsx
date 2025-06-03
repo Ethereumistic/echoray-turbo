@@ -1,6 +1,7 @@
 import { ModeToggle } from '@repo/design-system/components/mode-toggle';
 import { env } from '@repo/env';
-import { CommandIcon } from 'lucide-react';
+import { Wifi } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -13,8 +14,16 @@ const AuthLayout = ({ children }: AuthLayoutProps) => (
     <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
       <div className="absolute inset-0 bg-zinc-900" />
       <div className="relative z-20 flex items-center font-medium text-lg">
-        <CommandIcon className="mr-2 h-6 w-6" />
-        Echo Ray
+          <Link href="/">
+          <Image
+            src="https://cdn.jsdelivr.net/gh/Ethereumistic/echo-ray-assets/logo/echoray-dark.png"
+            alt="Logo"
+            width={200}
+            height={100}
+            className="invert"
+            priority
+          />
+          </Link>
       </div>
       <div className="absolute top-4 right-4">
         <ModeToggle />
