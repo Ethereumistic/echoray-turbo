@@ -12,6 +12,7 @@ import {
   MailIcon,
   CrownIcon,
 } from 'lucide-react';
+import { UserSyncButton } from './components/UserSyncButton';
 
 interface CompanyPageProps {
   params: Promise<{ companyId: string }>;
@@ -38,7 +39,15 @@ const CompanyPage = async ({ params }: CompanyPageProps) => {
         },
       ],
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      ownerId: true,
+      settings: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
       owner: {
         select: {
           id: true,
@@ -100,6 +109,21 @@ const CompanyPage = async ({ params }: CompanyPageProps) => {
 
   if (!company) {
     notFound();
+  }
+
+  // Handle case where owner might not exist in database
+  if (!company.owner) {
+    // Try to sync the user from Clerk if they exist
+    try {
+      const { userId: currentUserId } = await auth();
+      if (currentUserId === company.ownerId) {
+        // Current user is the owner but not in database - redirect to trigger sync
+        console.warn(`Owner user ${company.ownerId} not found in database for company ${company.id}`);
+        // You might want to redirect to a sync page or handle this differently
+      }
+    } catch (error) {
+      console.error('Error checking owner sync:', error);
+    }
   }
 
   const isOwner = company.ownerId === userId;
@@ -187,19 +211,19 @@ const CompanyPage = async ({ params }: CompanyPageProps) => {
               <div className="flex items-center space-x-4">
                 <Avatar className="h-10 w-10">
                   <AvatarImage
-                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${company.owner.name || company.owner.email}`}
-                    alt={company.owner.name || company.owner.email}
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${company.owner?.name || company.owner?.email || 'Unknown'}`}
+                    alt={company.owner?.name || company.owner?.email || 'Unknown Owner'}
                   />
                   <AvatarFallback>
-                    {(company.owner.name || company.owner.email).charAt(0).toUpperCase()}
+                    {company.owner ? (company.owner.name || company.owner.email).charAt(0).toUpperCase() : '?'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {company.owner.name || company.owner.email}
+                    {company.owner ? (company.owner.name || company.owner.email) : 'Owner (Not Synced)'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {company.owner.email}
+                    {company.owner ? company.owner.email : 'Owner user needs to be synced to database'}
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -207,6 +231,9 @@ const CompanyPage = async ({ params }: CompanyPageProps) => {
                   <Badge variant="outline" className="text-xs">
                     Owner
                   </Badge>
+                  {!company.owner && isOwner && (
+                    <UserSyncButton />
+                  )}
                 </div>
               </div>
 

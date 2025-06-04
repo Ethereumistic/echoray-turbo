@@ -6,66 +6,157 @@ import type {
   WebhookEvent,
 } from '@clerk/nextjs/server';
 import { analytics } from '@repo/analytics/posthog/server';
+import { database } from '@repo/database';
 import { env } from '@repo/env';
 import { log } from '@repo/observability/log';
 import { headers } from 'next/headers';
 import { Webhook } from 'svix';
 
-const handleUserCreated = (data: UserJSON) => {
-  analytics.identify({
-    distinctId: data.id,
-    properties: {
-      email: data.email_addresses.at(0)?.email_address,
-      firstName: data.first_name,
-      lastName: data.last_name,
-      createdAt: new Date(data.created_at),
-      avatar: data.image_url,
-      phoneNumber: data.phone_numbers.at(0)?.phone_number,
-    },
-  });
+const handleUserCreated = async (data: UserJSON) => {
+  const db = database as any;
+  
+  try {
+    // Get primary email address
+    const primaryEmail = data.email_addresses.find(email => email.id === data.primary_email_address_id);
+    const emailAddress = primaryEmail?.email_address || data.email_addresses.at(0)?.email_address;
+    
+    if (!emailAddress) {
+      log.error('No email address found for user', { userId: data.id });
+      return new Response('No email address found', { status: 400 });
+    }
 
-  analytics.capture({
-    event: 'User Created',
-    distinctId: data.id,
-  });
+    // Create user in database
+    await db.user.upsert({
+      where: { id: data.id },
+      update: {
+        email: emailAddress,
+        name: data.first_name && data.last_name 
+          ? `${data.first_name} ${data.last_name}`.trim()
+          : data.first_name || data.last_name || null,
+        updatedAt: new Date(),
+      },
+      create: {
+        id: data.id,
+        email: emailAddress,
+        name: data.first_name && data.last_name 
+          ? `${data.first_name} ${data.last_name}`.trim()
+          : data.first_name || data.last_name || null,
+      },
+    });
 
-  return new Response('User created', { status: 201 });
-};
+    log.info('User created in database', { userId: data.id, email: emailAddress });
 
-const handleUserUpdated = (data: UserJSON) => {
-  analytics.identify({
-    distinctId: data.id,
-    properties: {
-      email: data.email_addresses.at(0)?.email_address,
-      firstName: data.first_name,
-      lastName: data.last_name,
-      createdAt: new Date(data.created_at),
-      avatar: data.image_url,
-      phoneNumber: data.phone_numbers.at(0)?.phone_number,
-    },
-  });
-
-  analytics.capture({
-    event: 'User Updated',
-    distinctId: data.id,
-  });
-
-  return new Response('User updated', { status: 201 });
-};
-
-const handleUserDeleted = (data: DeletedObjectJSON) => {
-  if (data.id) {
+    // Analytics tracking
     analytics.identify({
       distinctId: data.id,
       properties: {
-        deleted: new Date(),
+        email: emailAddress,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        createdAt: new Date(data.created_at),
+        avatar: data.image_url,
+        phoneNumber: data.phone_numbers.at(0)?.phone_number,
       },
     });
 
     analytics.capture({
-      event: 'User Deleted',
+      event: 'User Created',
       distinctId: data.id,
     });
+
+    return new Response('User created', { status: 201 });
+  } catch (error) {
+    log.error('Error creating user in database', { userId: data.id, error });
+    return new Response('Error creating user', { status: 500 });
+  }
+};
+
+const handleUserUpdated = async (data: UserJSON) => {
+  const db = database as any;
+  
+  try {
+    // Get primary email address
+    const primaryEmail = data.email_addresses.find(email => email.id === data.primary_email_address_id);
+    const emailAddress = primaryEmail?.email_address || data.email_addresses.at(0)?.email_address;
+    
+    if (!emailAddress) {
+      log.error('No email address found for user update', { userId: data.id });
+      return new Response('No email address found', { status: 400 });
+    }
+
+    // Update user in database
+    await db.user.upsert({
+      where: { id: data.id },
+      update: {
+        email: emailAddress,
+        name: data.first_name && data.last_name 
+          ? `${data.first_name} ${data.last_name}`.trim()
+          : data.first_name || data.last_name || null,
+        updatedAt: new Date(),
+      },
+      create: {
+        id: data.id,
+        email: emailAddress,
+        name: data.first_name && data.last_name 
+          ? `${data.first_name} ${data.last_name}`.trim()
+          : data.first_name || data.last_name || null,
+      },
+    });
+
+    log.info('User updated in database', { userId: data.id, email: emailAddress });
+
+    // Analytics tracking
+    analytics.identify({
+      distinctId: data.id,
+      properties: {
+        email: emailAddress,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        createdAt: new Date(data.created_at),
+        avatar: data.image_url,
+        phoneNumber: data.phone_numbers.at(0)?.phone_number,
+      },
+    });
+
+    analytics.capture({
+      event: 'User Updated',
+      distinctId: data.id,
+    });
+
+    return new Response('User updated', { status: 201 });
+  } catch (error) {
+    log.error('Error updating user in database', { userId: data.id, error });
+    return new Response('Error updating user', { status: 500 });
+  }
+};
+
+const handleUserDeleted = async (data: DeletedObjectJSON) => {
+  const db = database as any;
+  
+  if (data.id) {
+    try {
+      // Note: Due to foreign key constraints, we should be careful about deleting users
+      // Instead of hard delete, we could soft delete or just log it
+      log.info('User deletion requested', { userId: data.id });
+      
+      // For now, just log and track analytics
+      // await db.user.delete({ where: { id: data.id } });
+
+      analytics.identify({
+        distinctId: data.id,
+        properties: {
+          deleted: new Date(),
+        },
+      });
+
+      analytics.capture({
+        event: 'User Deleted',
+        distinctId: data.id,
+      });
+    } catch (error) {
+      log.error('Error handling user deletion', { userId: data.id, error });
+      return new Response('Error handling user deletion', { status: 500 });
+    }
   }
 
   return new Response('User deleted', { status: 201 });
@@ -192,15 +283,15 @@ export const POST = async (request: Request): Promise<Response> => {
 
   switch (eventType) {
     case 'user.created': {
-      response = handleUserCreated(event.data);
+      response = await handleUserCreated(event.data);
       break;
     }
     case 'user.updated': {
-      response = handleUserUpdated(event.data);
+      response = await handleUserUpdated(event.data);
       break;
     }
     case 'user.deleted': {
-      response = handleUserDeleted(event.data);
+      response = await handleUserDeleted(event.data);
       break;
     }
     case 'organization.created': {

@@ -8,7 +8,11 @@ const isPublicRoute = createRouteMatcher([
   "/users/signup",
   "/users/current",
   "/auth/check",
-  "/threat-monitor/my-ip" // Allow getting user's IP without authentication
+  "/threat-monitor/my-ip", // Allow getting user's IP without authentication
+  "/users", // Clerk webhook endpoint for user creation
+  "/webhooks/clerk", // Clerk webhook endpoint
+  "/webhooks/stripe", // Stripe webhook endpoint
+  "/health" // Health check endpoint
 ]);
 
 // Check if a route should be public in development

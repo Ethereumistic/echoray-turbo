@@ -60,8 +60,8 @@ const tools = [
     title: 'Smart Analytics',
     description: 'AI-powered analytics platform for business intelligence and data insights.',
     icon: BarChartIcon,
-    url: '/tools/smart-analytics',
-    status: 'coming-soon',
+    url: '/tools/budgeteer',
+    status: 'available',
     category: 'AI & BI'
   },
   {
